@@ -103,14 +103,33 @@ async function setSession(id,lang,mode,step=0,data={}){
 async function session(id){return (await q('SELECT * FROM ewu_sessions WHERE telegram_id=$1',[id]))[0]||null}
 function phoneOk(x){return /\+?[0-9][0-9\s()\-]{7,}[0-9]/.test(String(x||''))}
 
+function fallbackCandidate(data){
+ let score=5;
+ if(phoneOk(data.phone)) score++;
+ if(String(data.experience||'').trim().length>8) score++;
+ if(String(data.documents||'').trim().length>4) score++;
+ if(/6|12|year|rok|рік|год|long|долг|довг|stał|permanent/i.test(String(data.duration||''))) score++;
+ if(/yes|tak|так|да|ja|sí|sim|B|C|D/i.test(String(data.driving||''))) score++;
+ score=Math.max(1,Math.min(10,score));
+ const summary=[
+   data.profession?('Profession: '+data.profession):'',
+   data.current_location?('Location: '+data.current_location):'',
+   data.experience?('Experience: '+data.experience):'',
+   data.documents?('Documents: '+data.documents):'',
+   data.desired_pay?('Expected pay: '+data.desired_pay):'',
+   data.work_priority?('Priority: '+data.work_priority):'',
+   data.duration?('Availability: '+data.duration):''
+ ].filter(Boolean).join(' | ');
+ return {summary:summary||'Candidate application collected.',score};
+}
 async function aiCandidate(data,lang){
- if(!AI_ENABLED) return {summary:'Application collected successfully.',score:7};
+ if(!AI_ENABLED) return fallbackCandidate(data);
  try{
   const prompt=`You are an EWU recruiter. Language: ${lang}. Return ONLY JSON {"summary":"...","score":1-10}. Summarize job fit, stability signals, documents, location and risks. Do not invent facts. DATA: ${JSON.stringify(data)}`;
   const r=await generateText({model:AI_MODEL,prompt,providerOptions:{gateway:{tags:['product:ewu','feature:candidate-score']}}});
   const m=r.text.match(/\{[\s\S]*\}/); if(m){const j=JSON.parse(m[0]);return {summary:String(j.summary||''),score:Math.max(1,Math.min(10,Number(j.score)||7))}}
  }catch(e){console.error('AI candidate',e.message)}
- return {summary:'Application collected successfully.',score:7};
+ return fallbackCandidate(data);
 }
 async function aiSummary(kind,data,lang){
  if(!AI_ENABLED) return '';
@@ -135,6 +154,13 @@ async function finalize(msg,s,kind,data){
  const status=kind==='candidate'?(ai.score>=8?'HOT CANDIDATE':ai.score>=6?'WARM CANDIDATE':'NEW'):'NEW';
  await pool.query('INSERT INTO ewu_applications(id,kind,telegram_id,username,language,full_name,phone,status,ai_score,ai_summary,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
   [uuid(),kind,msg.from.id,msg.from.username||'',s.lang,data.full_name||data.contact_person||'',data.phone||'',status,ai.score,ai.summary,JSON.stringify(data)]);
+ if(kind==='candidate'){
+   try{
+     const note='EWU '+status+(ai.score?(' · score '+ai.score+'/10'):'')+'\n'+(ai.summary||'');
+     await pool.query("INSERT INTO candidates(id,full_name,phone,citizenship,city,source,status,notes,telegram_chat) VALUES($1,$2,$3,$4,$5,'EWU Telegram','Новий',$6,$7)",
+       [uuid(),data.full_name||'EWU candidate',data.phone||'',data.citizenship||'',data.current_location||'',note,String(msg.chat.id)]);
+   }catch(e){console.error('GreenWork candidate sync',e.message)}
+ }
  await setSession(msg.from.id,s.lang,'menu',0,{});
  await send(msg.chat.id,L[s.lang].saved,menuKeyboard(s.lang));
 }
@@ -187,6 +213,10 @@ async function setup(){
  try{await tg('setMyName',{name:'European Workers Union'})}catch{}
  try{await tg('setMyDescription',{description:'EWU — jobs, workers and legalization support across Poland and Europe.'})}catch{}
  try{await tg('setMyCommands',{commands:[{command:'start',description:'Start / choose language'},{command:'reset',description:'Reset dialogue'}]})}catch{}
+ try{
+   const me=await tg('getMe');
+   console.log('EWU Telegram @'+(me.username||'unknown')+' id='+me.id);
+ }catch(e){console.error('getMe',e.message)}
  console.log('EWU production bot initialized. AI='+AI_ENABLED);
 }
 async function poll(){
