@@ -1,1 +1,6 @@
-[build]\nbuilder = "RAILPACK"\n\n[deploy]\nstartCommand = "python bot.py"\nrestartPolicyType = "ALWAYS"\n
+[build]
+builder = "RAILPACK"
+
+[deploy]
+startCommand = "python bot.py"
+restartPolicyType = "ALWAYS"
