@@ -75,7 +75,8 @@ async function init(){
  const ddl=[
   "CREATE TABLE IF NOT EXISTS ewu_sessions(telegram_id bigint primary key,lang text,mode text,step int default 0,data jsonb default '{}'::jsonb,updated_at timestamptz default now())",
   "CREATE TABLE IF NOT EXISTS ewu_applications(id uuid primary key,kind text not null,telegram_id bigint not null,username text default '',language text default 'en',full_name text default '',phone text default '',status text default 'NEW',ai_score int,ai_summary text default '',data jsonb default '{}'::jsonb,created_at timestamptz default now())",
-  "CREATE TABLE IF NOT EXISTS ewu_messages(id uuid primary key,telegram_id bigint not null,direction text not null,body text not null,created_at timestamptz default now())"
+  "CREATE TABLE IF NOT EXISTS ewu_messages(id uuid primary key,telegram_id bigint not null,direction text not null,body text not null,created_at timestamptz default now())",
+  "CREATE TABLE IF NOT EXISTS ewu_settings(key text primary key,value text not null,updated_at timestamptz default now())"
  ];
  for(const s of ddl) await pool.query(s);
 }
@@ -147,6 +148,30 @@ async function aiChat(text,lang){
   return r.text.trim();
  }catch(e){console.error('AI chat',e.message);return null}
 }
+async function getSetting(key){
+ const r=await q('SELECT value FROM ewu_settings WHERE key=$1',[key]);
+ return r[0]?.value||'';
+}
+async function setSetting(key,value){
+ await pool.query(`INSERT INTO ewu_settings(key,value,updated_at) VALUES($1,$2,now())
+ ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=now()`,[key,String(value)]);
+}
+function applicationText(kind,data,ai,status){
+ const title=kind==='candidate'?'👷 NEW CANDIDATE':kind==='employer'?'🏢 NEW EMPLOYER REQUEST':kind==='legal'?'📄 LEGALIZATION REQUEST':'📩 EWU REQUEST';
+ const lines=[title,''];
+ for(const [k,v] of Object.entries(data||{})){ if(v) lines.push(k.replaceAll('_',' ').toUpperCase()+': '+v); }
+ if(ai?.score) lines.push('', 'SCORE: '+ai.score+'/10');
+ if(status) lines.push('STATUS: '+status);
+ if(ai?.summary) lines.push('', 'SUMMARY: '+ai.summary);
+ return lines.join('\n').slice(0,3900);
+}
+async function notifyRecruitmentGroup(kind,data,ai,status){
+ const chatId=await getSetting('recruitment_group_chat_id');
+ if(!chatId) return;
+ try{ await send(chatId,applicationText(kind,data,ai,status)); }
+ catch(e){ console.error('group notify',e.message); }
+}
+
 async function finalize(msg,s,kind,data){
  let ai={summary:'',score:null};
  if(kind==='candidate') ai=await aiCandidate(data,s.lang);
@@ -161,6 +186,7 @@ async function finalize(msg,s,kind,data){
        [uuid(),data.full_name||'EWU candidate',data.phone||'',data.citizenship||'',data.current_location||'',note,String(msg.chat.id)]);
    }catch(e){console.error('GreenWork candidate sync',e.message)}
  }
+ await notifyRecruitmentGroup(kind,data,ai,status);
  await setSession(msg.from.id,s.lang,'menu',0,{});
  await send(msg.chat.id,L[s.lang].saved,menuKeyboard(s.lang));
 }
@@ -180,6 +206,19 @@ async function handle(msg){
  if(!msg?.from?.id) return;
  const text=String(msg.text||'').trim();
  if(!text) return;
+
+ if(msg.chat?.type==='group' || msg.chat?.type==='supergroup'){
+   if(text.startsWith('/bindgroup')){
+     await setSetting('recruitment_group_chat_id',msg.chat.id);
+     return send(msg.chat.id,'✅ Цю групу прив’язано до EWU. Нові заявки будуть надходити сюди.');
+   }
+   if(text.startsWith('/unbindgroup')){
+     await setSetting('recruitment_group_chat_id','');
+     return send(msg.chat.id,'✅ Групу відв’язано від EWU.');
+   }
+   return;
+ }
+
  await saveMsg(msg.from.id,'in',text);
  if(text==='/start'||text==='/reset') return start(msg);
  let s=await session(msg.from.id);
@@ -212,7 +251,12 @@ async function setup(){
  try{await tg('deleteWebhook',{drop_pending_updates:false})}catch{}
  try{await tg('setMyName',{name:'European Workers Union'})}catch{}
  try{await tg('setMyDescription',{description:'EWU — jobs, workers and legalization support across Poland and Europe.'})}catch{}
- try{await tg('setMyCommands',{commands:[{command:'start',description:'Start / choose language'},{command:'reset',description:'Reset dialogue'}]})}catch{}
+ try{await tg('setMyCommands',{commands:[
+ {command:'start',description:'Start / choose language'},
+ {command:'reset',description:'Reset dialogue'},
+ {command:'bindgroup',description:'Bind this group for EWU applications'},
+ {command:'unbindgroup',description:'Unbind recruitment group'}
+]})}catch{}
  try{
    const me=await tg('getMe');
    console.log('EWU Telegram @'+(me.username||'unknown')+' id='+me.id);
