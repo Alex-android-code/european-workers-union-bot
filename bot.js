@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import http from 'node:http';
 import pg from 'pg';
 import { generateText } from 'ai';
 
@@ -11,6 +12,7 @@ if (!TOKEN || !DB) throw new Error('Missing TELEGRAM_TOKEN or DATABASE_URL');
 
 const pool = new Pool({ connectionString: DB, max: 5 });
 const API = 'https://api.telegram.org/bot' + TOKEN + '/';
+const PORT = Number(process.env.PORT || 3000);
 let offset = 0;
 
 const LANGS = {
@@ -196,4 +198,13 @@ async function poll(){
   }catch(e){console.error('poll',e.message);await new Promise(r=>setTimeout(r,3000))}
  }
 }
+http.createServer((req,res)=>{
+  if(req.url==='/api/health'){
+    res.writeHead(200,{'content-type':'application/json'});
+    return res.end(JSON.stringify({ok:true,name:'European Workers Union Bot',ai:AI_ENABLED}));
+  }
+  res.writeHead(404,{'content-type':'application/json'});
+  res.end(JSON.stringify({error:'Not found'}));
+}).listen(PORT,'0.0.0.0',()=>console.log('EWU health server on '+PORT));
+
 poll().catch(e=>{console.error(e);process.exit(1)});
