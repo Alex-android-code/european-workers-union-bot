@@ -235,6 +235,8 @@ async function handle(msg){
  if(text===L[lang].candidate){await setSession(msg.from.id,lang,'candidate',0,{});return send(msg.chat.id,flows.candidate.q[lang][0])}
  if(text===L[lang].employer){await setSession(msg.from.id,lang,'employer',0,{});return send(msg.chat.id,flows.employer.q[lang][0])}
  if(text===L[lang].legal){await setSession(msg.from.id,lang,'legal',0,{});return send(msg.chat.id,flows.legal.q[lang][0])}
+ if(text===L[lang].about){await setSession(msg.from.id,lang,'menu',0,{});return send(msg.chat.id,L[lang].aboutText,menuKeyboard(lang))}
+ if(text===L[lang].contact){await setSession(msg.from.id,lang,'contact',0,{});return send(msg.chat.id,L[lang].contactAsk)}
  if(['candidate','employer','legal'].includes(s.mode)) return handleFlow(msg,s,text);
  if(s.mode==='contact'){
   const data={message:text};
@@ -242,8 +244,6 @@ async function handle(msg){
   await setSession(msg.from.id,lang,'menu',0,{});
   return send(msg.chat.id,L[lang].saved,menuKeyboard(lang));
  }
- if(text===L[lang].about) return send(msg.chat.id,L[lang].aboutText,menuKeyboard(lang));
- if(text===L[lang].contact){await setSession(msg.from.id,lang,'contact',0,{});return send(msg.chat.id,L[lang].contactAsk)}
  const a=await aiChat(text,lang);
  return send(msg.chat.id,a||L[lang].welcome,menuKeyboard(lang));
 }
