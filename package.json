@@ -3,8 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": {"node": ">=20"},
-  "scripts": {"start": "node bot.js"},
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node bot.js",
+    "test": "node --test tests/menu-routing.test.mjs"
+  },
   "dependencies": {
     "ai": "^6.0.0",
     "pg": "^8.13.1"
