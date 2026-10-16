@@ -1,0 +1,40 @@
+name: EWU approved vacancy publisher
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/ewu_channel_publisher.py'
+      - 'tests/test_ewu_channel_publisher.py'
+      - '.github/workflows/ewu-channel-publisher.yml'
+  workflow_dispatch:
+  schedule:
+    # Three checks per day, UTC; GitHub schedules may run later than planned.
+    - cron: '20 7,12,17 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ewu-channel-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate publisher
+        run: python -m unittest discover -s tests -p 'test_ewu_channel_publisher.py'
+      - name: Publish one approved vacancy
+        if: github.event_name != 'pull_request'
+        env:
+          EWU_TELEGRAM_BOT_TOKEN: ${{ secrets.EWU_TELEGRAM_BOT_TOKEN }}
+          EWU_CHANNEL_ID: '@EWUpraca'
+        run: python scripts/ewu_channel_publisher.py
