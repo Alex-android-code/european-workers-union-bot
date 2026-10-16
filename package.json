@@ -1,12 +1,7 @@
 {
-  "name": "european-workers-union-bot",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "engines": {"node": ">=20"},
-  "scripts": {"start": "node bot.js"},
-  "dependencies": {
-    "ai": "^6.0.0",
-    "pg": "^8.13.1"
-  }
+ "name":"european-workers-union-bot","version":"1.1.0","private":true,"type":"module",
+ "engines":{"node":">=20"},
+ "scripts":{"start":"node bot.js","test":"node --test inbox.test.mjs integration.test.mjs"},
+ "dependencies":{"ai":"6.0.0","pg":"8.13.1"},
+ "devDependencies":{"@electric-sql/pglite":"0.3.14"}
 }
