@@ -1,7 +1,7 @@
 // Pure, deterministic vacancy matching. No Telegram token or database required.
 // Eligibility is never inferred from nationality or an AI-generated score.
 const norm = x => String(x ?? '').trim().toLowerCase();
-const words = x => norm(x).split(/[^\\p{L}\\p{N}]+/u).filter(w => w.length >= 3);
+const words = x => norm(x).split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 3);
 const truthy = x => x === true || ['true','yes','tak','так','да','1'].includes(norm(x));
 export function matchVacancies(candidate, vacancies, now = new Date()) {
   const profession = words(candidate.profession);
