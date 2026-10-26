@@ -1,6 +1,13 @@
 name: EWU approved vacancy publisher
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'vacancies/approved.json'
+      - 'tests/test_ewu_channel_publisher.py'
+      - '.github/workflows/ewu-channel-publisher.yml'
   pull_request:
     paths:
       - 'scripts/ewu_channel_publisher.py'
