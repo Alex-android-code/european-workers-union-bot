@@ -53,8 +53,21 @@ class PublisherTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             publisher.eligible_posts([self.offer, self.offer], {}, self.today)
 
-    def test_no_personal_information_loaded_by_default(self):
-        self.assertEqual(publisher.read_json(publisher.QUEUE, []), [])
+    def test_public_queue_is_valid(self):
+        queue = publisher.read_json(publisher.QUEUE, [])
+        self.assertIsInstance(queue, list)
+        for offer in queue:
+            self.assertIsInstance(offer, dict)
+            self.assertIn("id", offer)
+            self.assertIn("text", offer)
+            self.assertFalse({"passport", "candidate_name", "pesel", "birth_date"}.intersection(offer))
+
+    def test_only_urgent_20261026_posts_are_eligible(self):
+        queue = publisher.read_json(publisher.QUEUE, [])
+        state = publisher.read_json(publisher.STATE, {})
+        posts = publisher.eligible_posts(queue, state, dt.date(2026, 10, 26))
+        self.assertEqual(len(posts), 6)
+        self.assertTrue(all(ident.startswith("ewu-20261026-priority-") for ident, _ in posts))
 
 
 if __name__ == "__main__":
