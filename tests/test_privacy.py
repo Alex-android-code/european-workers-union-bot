@@ -57,9 +57,9 @@ class PrivacyTests(unittest.TestCase):
         s=Store(self.db, self.p)
         self.addCleanup(s.close)
         return s
-    def test_start_displays_four_notices_without_record_or_questionnaire(self):
+    def test_start_displays_five_notices_without_record_or_questionnaire(self):
         self.fake.handle(self.msg('/start'))
-        self.assertEqual(len(self.fake.sent), 4)
+        self.assertEqual(len(self.fake.sent), len(UI))
         for lang, (_, text, options) in zip(UI, self.fake.sent):
             self.assertIn(UI[lang]['title'], text)
             self.assertIn('Polityka prywatności:', text)
@@ -151,7 +151,7 @@ class PrivacyTests(unittest.TestCase):
         self.path.unlink()
         self.fake.sent.clear()
         self.fake.handle(self.msg('/start'))
-        self.assertEqual(len(self.fake.sent),4)
+        self.assertEqual(len(self.fake.sent),len(UI))
         self.assertNotIn('callback_data',repr(self.fake.sent))
     def test_selected_intake_is_saved_only_after_acknowledgement(self):
         self.fake.handle(self.msg('👷 I’m looking for work'))
@@ -190,6 +190,8 @@ class PrivacyTests(unittest.TestCase):
         self.assertEqual(s.db.execute('SELECT count(*) FROM applications').fetchone()[0],0)
         self.assertIsNone(s.intake(42))
     def test_url_and_retention_validation(self):
+        self.path.write_text('[]')
+        with self.assertRaises(ValueError):load_policy(self.path)
         for mutate in [lambda p:p.update(core_legal_basis='consent'),
                        lambda p:p.update(audit_retention_days=0),
                        lambda p:p['notices']['uk'].update(policy_url='http://example.invalid'),

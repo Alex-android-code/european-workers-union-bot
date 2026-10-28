@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {UI,validate,revision,render,createGate,PgStore} from '../privacy/node.js';
 function fixture(){
- const keys=['controller','contact','purposes','legal_basis','retention','recipients','transfers','rights','complaint','provision','automated'];
+ const keys=['controller','controller_address','contact','purposes','legal_basis','retention','recipients','transfers','rights','complaint','provision','automated','ai_use'];
  return {version:'test-v1',core_legal_basis:'art6_1_b',audit_retention_days:30,application_retention_days:7,notices:Object.fromEntries(Object.keys(UI).map(lang=>[lang,{...Object.fromEntries(keys.map(k=>[k,'TEST ONLY '+k])),policy_url:'https://example.invalid/privacy'}]))};
 }
 function setup(){
@@ -13,8 +13,8 @@ function setup(){
  const click=async(action='yes',key=revision(policy),id=42)=>gate(msg('',id),{id:'cb',from:{id},data:`p:${key}:uk:${action}`});
  return {policy,sent,events,store,gate,msg,click,continued:()=>continued};
 }
-test('four notices, no intake before acknowledgement; positive flow',async()=>{
- const x=setup();assert.equal(await x.gate(x.msg('SECRET')),true);assert.equal(x.sent.length,4);assert.equal(x.events.length,0);
+test('five notices, no intake before acknowledgement; positive flow',async()=>{
+ const x=setup();assert.equal(await x.gate(x.msg('SECRET')),true);assert.equal(x.sent.length,Object.keys(UI).length);assert.equal(x.events.length,0);
  assert.ok(!JSON.stringify(x.sent).includes('SECRET'));
  await x.click();assert.equal(x.continued(),1);assert.equal(await x.gate(x.msg('questionnaire')),false);
  assert.equal(x.events[0].action,'acknowledged');assert.equal(x.events[0].notice,render(x.policy,'uk'));

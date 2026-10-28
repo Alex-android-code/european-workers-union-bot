@@ -16,7 +16,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "controller_address": "",
+      "ai_use": ""
     },
     "pl": {
       "controller": "",
@@ -30,7 +32,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "controller_address": "",
+      "ai_use": ""
     },
     "ru": {
       "controller": "",
@@ -44,7 +48,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "controller_address": "",
+      "ai_use": ""
     },
     "uz": {
       "controller": "",
@@ -58,7 +64,33 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "controller_address": "",
+      "ai_use": ""
+    },
+    "en": {
+      "controller": "",
+      "contact": "",
+      "purposes": "",
+      "legal_basis": "",
+      "retention": "",
+      "recipients": "",
+      "transfers": "",
+      "rights": "",
+      "complaint": "",
+      "provision": "",
+      "automated": "",
+      "policy_url": "",
+      "controller_address": "",
+      "ai_use": ""
     }
-  }
+  },
+  "legal_review_approved": false,
+  "effective_at": "",
+  "partner_transfer_approved": false,
+  "notifications_approved": false,
+  "sheets_approved": false,
+  "optional_consents": {},
+  "ai_approved": false,
+  "ai_processing_basis": ""
 }

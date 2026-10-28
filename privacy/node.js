@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 export const UI=JSON.parse(fs.readFileSync(new URL('./ui.json',import.meta.url),'utf8'));
-const fields=['controller','contact','purposes','legal_basis','retention','recipients','transfers','rights','complaint','provision','automated'];
+const fields=['controller','controller_address','contact','purposes','legal_basis','retention','recipients','transfers','rights','complaint','provision','automated','ai_use'];
 const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
 export const revision=p=>crypto.createHash('sha256').update(JSON.stringify(canonical(p))).digest('hex').slice(0,24);
 export function render(p,lang) {
  const ui=UI[lang],n=p.notices[lang];
- return [ui.title+' — '+p.version,...fields.map(k=>ui[k]+': '+n[k]),'Polityka prywatności: '+n.policy_url,ui.note].join('\n\n');
+ return [ui.title+' — '+p.version,...(p.effective_at?[ui.effective_at+': '+p.effective_at]:[]),...fields.map(k=>ui[k]+': '+n[k]),'Polityka prywatności: '+n.policy_url,ui.note].join('\n\n');
 }
 export function validate(p) {
  if(typeof p.version!=='string'||!p.version.trim()) throw Error('Missing version');

@@ -8,12 +8,14 @@ from datetime import datetime, timezone, timedelta
 from urllib.parse import urlsplit
 
 UI = json.loads(Path(__file__).with_name('ui.json').read_text(encoding='utf-8'))
-FIELDS = ('controller', 'contact', 'purposes', 'legal_basis', 'retention',
-          'recipients', 'transfers', 'rights', 'complaint', 'provision', 'automated')
+FIELDS = ('controller', 'controller_address', 'contact', 'purposes', 'legal_basis', 'retention',
+          'recipients', 'transfers', 'rights', 'complaint', 'provision', 'automated', 'ai_use')
 
 
 def load_policy(path):
     policy = json.loads(Path(path).read_text(encoding='utf-8'))
+    if not isinstance(policy, dict) or not isinstance(policy.get('notices'), dict):
+        raise ValueError('Invalid privacy configuration')
     if not isinstance(policy.get('version'), str) or not policy['version'].strip():
         raise ValueError('Missing policy version')
     if policy.get('core_legal_basis') not in ('art6_1_b', 'art6_1_c', 'art6_1_f'):
@@ -24,6 +26,8 @@ def load_policy(path):
             raise ValueError('Invalid retention')
     for lang in UI:
         notice = policy.get('notices', {}).get(lang, {})
+        if not isinstance(notice, dict):
+            raise ValueError('Invalid privacy notice')
         for field in (*FIELDS, 'policy_url'):
             if not isinstance(notice.get(field), str) or not notice[field].strip():
                 raise ValueError('Incomplete privacy notice')
@@ -44,6 +48,8 @@ def revision(policy):
 def render(policy, lang):
     ui, notice = UI[lang], policy['notices'][lang]
     lines = [ui['title'] + ' — ' + policy['version']]
+    if policy.get('effective_at'):
+        lines.append(ui['effective_at'] + ': ' + policy['effective_at'])
     lines += [ui[field] + ': ' + notice[field] for field in FIELDS]
     return '\n\n'.join(lines + ['Polityka prywatności: ' + notice['policy_url'], ui['note']])
 

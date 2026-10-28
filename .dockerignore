@@ -1,0 +1,13 @@
+.git
+node_modules
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+privacy.local.json
+*.sqlite3
+*.sqlite3-*
+*.dump
+*.manifest.json

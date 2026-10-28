@@ -24,7 +24,7 @@ FLOWS = {
 }
 
 
-def create_bot(token, policy_path, database_path, bot_client=None):
+def create_bot(token, policy_path, database_path, bot_client=None, backend=None):
     bot = bot_client or telebot.TeleBot(token, threaded=False)
     state = {'store': None}
 
@@ -61,6 +61,8 @@ def create_bot(token, policy_path, database_path, bot_client=None):
     def handle(message):
         if message.chat.type != 'private' or message.from_user.is_bot:
             return
+        if backend is not None:
+            return backend.message(message, bot)
         current = policy()
         if current is None:
             notice(message.chat.id, None)
@@ -106,8 +108,10 @@ def create_bot(token, policy_path, database_path, bot_client=None):
         else:
             bot.send_message(message.chat.id, 'No application has been saved or forwarded. Choose a menu option or use the contact in /privacy.')
 
-    @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith('p:'))
+    @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith(('p:', 'v2:')))
     def callback(call):
+        if backend is not None:
+            return backend.callback(call, bot)
         if not call.message or call.message.chat.type != 'private' or call.message.chat.id != call.from_user.id:
             return
         bot.answer_callback_query(call.id)
@@ -130,16 +134,33 @@ def create_bot(token, policy_path, database_path, bot_client=None):
 def run():
     # SDK exception logs can include Telegram URLs containing the token.
     telebot.logger.disabled = True
+    from ewu.config import configured_backend
+    backend = configured_backend()
     bot = create_bot(os.environ['TELEGRAM_TOKEN'], os.environ.get('PRIVACY_CONFIG_FILE', ''),
-                     os.environ.get('PRIVACY_DB_PATH', '/data/ewu/privacy.sqlite3'))
+                     os.environ.get('PRIVACY_DB_PATH', '/data/ewu/privacy.sqlite3'), backend=backend)
     logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s')
-    while True:
+    import signal
+    stopping = False
+    def stop(signum, frame):
+        nonlocal stopping
+        stopping = True
+        bot.stop_polling()
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    while not stopping:
         try:
             bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=False)
         except Exception:
             logging.error('polling_failed')
-            time.sleep(10)
+            if not stopping:
+                time.sleep(10)
+    if backend is not None:
+        backend.service.db.close()
 
 
 if __name__ == '__main__':
-    run()
+    try:
+        run()
+    except Exception:
+        logging.error('startup_failed')
+        raise SystemExit(1) from None

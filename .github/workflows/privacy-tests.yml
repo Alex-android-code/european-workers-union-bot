@@ -1,4 +1,4 @@
-name: Offline privacy tests
+name: Offline EWU tests
 on:
   pull_request:
   workflow_dispatch:
@@ -7,6 +7,9 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -14,7 +17,7 @@ jobs:
           python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: python -m pip install -r requirements.txt
       - run: npm ci --ignore-scripts --no-audit --no-fund
