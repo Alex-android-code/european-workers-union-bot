@@ -1,67 +1,145 @@
-import os
-import time
+"""Railway entrypoint. Importing this module never starts or authenticates a bot."""
 import logging
+import os
+import re
+import time
+
 import telebot
+from privacy.onboarding import UI, Store, load_policy, render, revision
 
-TOKEN = os.environ["TELEGRAM_TOKEN"]
-ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID", "").strip()
-BRAND = "European Workers Union"
-bot = telebot.TeleBot(TOKEN)
+MENU = {
+    '👷 I’m looking for work': 'candidate',
+    '🏢 I’m looking for workers': 'employer',
+    '📄 Legalization and documents': 'legal',
+    'ℹ️ About EWU': 'about',
+    '📞 Contact coordinator': 'contact',
+}
+FLOWS = {
+    'candidate': [('name', 'Your name?'), ('city', 'Your current city?'),
+                  ('phone', 'Your contact phone with country code?'), ('profession', 'What work are you looking for?')],
+    'employer': [('company', 'Company name?'), ('location', 'Work location?'),
+                 ('requirements', 'Describe staffing requirements without other people’s personal data.'), ('phone', 'Contact phone with country code?')],
+    'legal': [('country', 'Which country does your question concern?'),
+              ('question', 'General question only. Do not send documents, PESEL or medical data.'), ('phone', 'Contact phone with country code?')],
+}
 
-def notify_admin(text):
-    if ADMIN_TELEGRAM_ID:
+
+def create_bot(token, policy_path, database_path, bot_client=None):
+    bot = bot_client or telebot.TeleBot(token, threaded=False)
+    state = {'store': None}
+
+    def policy():
         try:
-            bot.send_message(int(ADMIN_TELEGRAM_ID), text)
-        except Exception:
-            logging.exception("Admin notification failed")
+            current = load_policy(policy_path)
+            if state['store'] is None:
+                state['store'] = Store(database_path, current)
+            state['store'].policy = current
+            return current
+        except (OSError, ValueError, TypeError, KeyError):
+            # Never log exception text: it may contain a path, secret or user data.
+            logging.warning('privacy_configuration_unavailable')
+            return None
 
-@bot.message_handler(commands=["start"])
-def start(message):
-    kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
-    for label in [
-        "👷 I’m looking for work",
-        "🏢 I’m looking for workers",
-        "📄 Legalization and documents",
-        "ℹ️ About EWU",
-        "📞 Contact coordinator",
-    ]:
-        kb.add(telebot.types.KeyboardButton(label))
-    bot.send_message(
-        message.chat.id,
-        "Welcome to European Workers Union (EWU).\n\n"
-        "We connect workers with employers across Poland and Europe. "
-        "Choose an option below:",
-        reply_markup=kb,
-    )
+    def notice(chat_id, current):
+        for lang, ui in UI.items():
+            if current is None:
+                bot.send_message(chat_id, ui['unavailable'], reply_markup=telebot.types.ReplyKeyboardRemove())
+                continue
+            kb = telebot.types.InlineKeyboardMarkup()
+            key = revision(current)
+            kb.row(telebot.types.InlineKeyboardButton(ui['continue'], callback_data=f'p:{key}:{lang}:yes'),
+                   telebot.types.InlineKeyboardButton(ui['decline'], callback_data=f'p:{key}:{lang}:no'))
+            bot.send_message(chat_id, render(current, lang), reply_markup=kb, disable_web_page_preview=True)
 
-@bot.message_handler(func=lambda m: True)
-def handle(message):
-    text = (message.text or "").strip()
-    responses = {
-        "ℹ️ About EWU": "European Workers Union (EWU) connects workers and employers across Poland and Europe.",
-        "📞 Contact coordinator": "Please send your name, phone number and a short description of your request.",
-        "👷 I’m looking for work": "Please send your full name, current city, phone number and the type of work you are looking for.",
-        "🏢 I’m looking for workers": "Please send your company name, location, required number of workers and contact details.",
-        "📄 Legalization and documents": "Please describe what document or legalization support you need and the country where you are currently located.",
-    }
-    bot.send_message(message.chat.id, responses.get(text, "Thank you. Your message has been received. Use /start to open the EWU menu."))
-    if text not in responses:
-        notify_admin(f"EWU message from {message.from_user.id}: {text}")
+    def menu(chat_id):
+        kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+        for label in MENU:
+            kb.add(telebot.types.KeyboardButton(label))
+        bot.send_message(chat_id, 'EWU — choose an option. /privacy /withdraw /delete_data', reply_markup=kb)
+
+    @bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'document', 'contact', 'voice', 'video', 'audio', 'location', 'sticker'])
+    def handle(message):
+        if message.chat.type != 'private' or message.from_user.is_bot:
+            return
+        current = policy()
+        if current is None:
+            notice(message.chat.id, None)
+            return
+        store = state['store']
+        user_id = message.from_user.id
+        lang = message.from_user.language_code or 'uk'
+        lang = lang if lang in UI else 'uk'
+        text = (message.text or '').strip()
+        command = text.split(maxsplit=1)[0].split('@')[0] if text else ''
+        if command in ('/withdraw', '/delete_data'):
+            action = 'withdrawn' if command == '/withdraw' else 'deletion_requested'
+            store.record(user_id, action, lang)
+            answer = UI[lang]['stopped'] if action == 'withdrawn' else UI[lang]['deleted'] + current['notices'][lang]['contact']
+            bot.send_message(message.chat.id, answer, reply_markup=telebot.types.ReplyKeyboardRemove())
+            return
+        if command in ('/start', '/reset', '/privacy') or not store.allowed(user_id):
+            notice(message.chat.id, current)
+            return
+        selection = MENU.get(text)
+        if selection in FLOWS:
+            store.begin_intake(user_id, selection)
+            bot.send_message(message.chat.id, FLOWS[selection][0][1] + '\nDo not send identity documents or sensitive data.')
+            return
+        if selection in ('about', 'contact'):
+            bot.send_message(message.chat.id, 'European Workers Union. Contact: ' + current['notices'][lang]['contact'])
+            return
+        intake = store.intake(user_id)
+        if intake and text:
+            kind, answers = intake
+            steps = FLOWS[kind]
+            field, _ = steps[len(answers)]
+            if field == 'phone' and not re.fullmatch(r'\+?[0-9][0-9 ()-]{7,18}[0-9]', text):
+                bot.send_message(message.chat.id, 'Please enter a phone number with country code.')
+                return
+            completed = len(answers) + 1 == len(steps)
+            store.save_answer(user_id, field, text, completed)
+            if completed:
+                bot.send_message(message.chat.id, 'Your request has been saved. /privacy /withdraw /delete_data')
+                menu(message.chat.id)
+            else:
+                bot.send_message(message.chat.id, steps[len(answers) + 1][1])
+        else:
+            bot.send_message(message.chat.id, 'No application has been saved or forwarded. Choose a menu option or use the contact in /privacy.')
+
+    @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith('p:'))
+    def callback(call):
+        if not call.message or call.message.chat.type != 'private' or call.message.chat.id != call.from_user.id:
+            return
+        bot.answer_callback_query(call.id)
+        current = policy()
+        parts = call.data.split(':')
+        if current is None or len(parts) != 4 or parts[1] != revision(current) or parts[2] not in UI or parts[3] not in ('yes', 'no'):
+            notice(call.message.chat.id, current)
+            return
+        lang, action = parts[2], parts[3]
+        store = state['store']
+        store.record(call.from_user.id, 'acknowledged' if action == 'yes' else 'declined', lang)
+        if action == 'yes' and store.allowed(call.from_user.id):
+            menu(call.message.chat.id)
+        else:
+            bot.send_message(call.message.chat.id, UI[lang]['stopped'], reply_markup=telebot.types.ReplyKeyboardRemove())
+
+    return bot
+
 
 def run():
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    try:
-        bot.set_my_name(BRAND)
-    except Exception:
-        logging.exception("Could not update Telegram display name")
+    # SDK exception logs can include Telegram URLs containing the token.
+    telebot.logger.disabled = True
+    bot = create_bot(os.environ['TELEGRAM_TOKEN'], os.environ.get('PRIVACY_CONFIG_FILE', ''),
+                     os.environ.get('PRIVACY_DB_PATH', '/data/ewu/privacy.sqlite3'))
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s')
     while True:
         try:
-            bot.remove_webhook()
-            logging.info("European Workers Union bot polling started")
             bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=False)
         except Exception:
-            logging.exception("Polling error; restarting in 10 seconds")
+            logging.error('polling_failed')
             time.sleep(10)
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     run()

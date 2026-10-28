@@ -3,10 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": {"node": ">=20"},
-  "scripts": {"start": "node bot.js"},
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node bot.js",
+    "test": "node tests/privacy.test.js && node tests/privacy-pg.test.js"
+  },
   "dependencies": {
     "ai": "^6.0.0",
     "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.14"
   }
 }

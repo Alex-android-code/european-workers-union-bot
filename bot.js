@@ -1,16 +1,17 @@
 import crypto from 'node:crypto';
 import http from 'node:http';
 import pg from 'pg';
-import { generateText } from 'ai';
+import { initDatabase } from './database.js';
+import { PgStore, createGate } from './privacy/node.js';
 
 const { Pool } = pg;
 const TOKEN = String(process.env.TELEGRAM_TOKEN || '');
 const DB = String(process.env.DATABASE_URL || '');
-const AI_MODEL = String(process.env.AI_MODEL || '');
-const AI_ENABLED = Boolean(process.env.AI_GATEWAY_API_KEY && AI_MODEL);
+const AI_ENABLED = false; // Optional AI processing requires a separately reviewed legal basis and opt-in flow.
 if (!TOKEN || !DB) throw new Error('Missing TELEGRAM_TOKEN or DATABASE_URL');
 
 const pool = new Pool({ connectionString: DB, max: 5 });
+pool.on('error',()=>console.error('database_connection_failed'));
 const API = 'https://api.telegram.org/bot' + TOKEN + '/';
 const PORT = Number(process.env.PORT || 3000);
 let offset = 0;
@@ -68,17 +69,20 @@ const flows = {
  }
 };
 
+// Minimize intake; no citizenship, document, driving or stability profiling.
+for (const [kind, indexes] of Object.entries({candidate:[0,1,2,4],employer:[0,1,2,4,5,6,8],legal:[0,1,4]})) {
+ const f=flows[kind];
+ f.fields=indexes.map(i=>f.fields[i]);
+ for(const lang of Object.keys(f.q)) f.q[lang]=indexes.map(i=>f.q[lang][i]);
+}
+const privacyStore = new PgStore(pool);
+const privacyGate = createGate({store:privacyStore,tg,onContinue:start});
+
 const q = async (sql,p=[]) => (await pool.query(sql,p)).rows;
 const uuid = () => crypto.randomUUID();
 
 async function init(){
- const ddl=[
-  "CREATE TABLE IF NOT EXISTS ewu_sessions(telegram_id bigint primary key,lang text,mode text,step int default 0,data jsonb default '{}'::jsonb,updated_at timestamptz default now())",
-  "CREATE TABLE IF NOT EXISTS ewu_applications(id uuid primary key,kind text not null,telegram_id bigint not null,username text default '',language text default 'en',full_name text default '',phone text default '',status text default 'NEW',ai_score int,ai_summary text default '',data jsonb default '{}'::jsonb,created_at timestamptz default now())",
-  "CREATE TABLE IF NOT EXISTS ewu_messages(id uuid primary key,telegram_id bigint not null,direction text not null,body text not null,created_at timestamptz default now())",
-  "CREATE TABLE IF NOT EXISTS ewu_settings(key text primary key,value text not null,updated_at timestamptz default now())"
- ];
- for(const s of ddl) await pool.query(s);
+ await initDatabase(pool);
 }
 
 async function tg(method, body={}){
@@ -87,13 +91,10 @@ async function tg(method, body={}){
  if(!d.ok) throw new Error(method+': '+(d.description||'Telegram API error'));
  return d.result;
 }
-async function saveMsg(id,direction,body){
- try{await pool.query('INSERT INTO ewu_messages(id,telegram_id,direction,body) VALUES($1,$2,$3,$4)',[uuid(),id,direction,String(body||'')]);}catch(e){console.error('saveMsg',e.message)}
-}
 async function send(id,text,keyboard=null){
- const body={chat_id:id,text,parse_mode:'HTML'};
+ const body={chat_id:id,text};
  if(keyboard) body.reply_markup={keyboard,resize_keyboard:true};
- await tg('sendMessage',body); await saveMsg(id,'out',text);
+ await tg('sendMessage',body);
 }
 const langKeyboard=()=>Object.keys(LANGS).map(x=>[x]);
 const menuKeyboard=lang=>[[L[lang].candidate],[L[lang].employer],[L[lang].legal],[L[lang].about],[L[lang].contact]];
@@ -104,89 +105,11 @@ async function setSession(id,lang,mode,step=0,data={}){
 async function session(id){return (await q('SELECT * FROM ewu_sessions WHERE telegram_id=$1',[id]))[0]||null}
 function phoneOk(x){return /\+?[0-9][0-9\s()\-]{7,}[0-9]/.test(String(x||''))}
 
-function fallbackCandidate(data){
- let score=5;
- if(phoneOk(data.phone)) score++;
- if(String(data.experience||'').trim().length>8) score++;
- if(String(data.documents||'').trim().length>4) score++;
- if(/6|12|year|rok|рік|год|long|долг|довг|stał|permanent/i.test(String(data.duration||''))) score++;
- if(/yes|tak|так|да|ja|sí|sim|B|C|D/i.test(String(data.driving||''))) score++;
- score=Math.max(1,Math.min(10,score));
- const summary=[
-   data.profession?('Profession: '+data.profession):'',
-   data.current_location?('Location: '+data.current_location):'',
-   data.experience?('Experience: '+data.experience):'',
-   data.documents?('Documents: '+data.documents):'',
-   data.desired_pay?('Expected pay: '+data.desired_pay):'',
-   data.work_priority?('Priority: '+data.work_priority):'',
-   data.duration?('Availability: '+data.duration):''
- ].filter(Boolean).join(' | ');
- return {summary:summary||'Candidate application collected.',score};
-}
-async function aiCandidate(data,lang){
- if(!AI_ENABLED) return fallbackCandidate(data);
- try{
-  const prompt=`You are an EWU recruiter. Language: ${lang}. Return ONLY JSON {"summary":"...","score":1-10}. Summarize job fit, stability signals, documents, location and risks. Do not invent facts. DATA: ${JSON.stringify(data)}`;
-  const r=await generateText({model:AI_MODEL,prompt,providerOptions:{gateway:{tags:['product:ewu','feature:candidate-score']}}});
-  const m=r.text.match(/\{[\s\S]*\}/); if(m){const j=JSON.parse(m[0]);return {summary:String(j.summary||''),score:Math.max(1,Math.min(10,Number(j.score)||7))}}
- }catch(e){console.error('AI candidate',e.message)}
- return fallbackCandidate(data);
-}
-async function aiSummary(kind,data,lang){
- if(!AI_ENABLED) return '';
- try{
-  const prompt=`You are European Workers Union (EWU). Language: ${lang}. Create a concise operational summary for a ${kind} application. Do not invent facts. DATA: ${JSON.stringify(data)}`;
-  const r=await generateText({model:AI_MODEL,prompt,providerOptions:{gateway:{tags:['product:ewu','feature:'+kind+'-summary']}}});
-  return r.text.trim();
- }catch(e){console.error('AI summary',e.message);return ''}
-}
-async function aiChat(text,lang){
- if(!AI_ENABLED) return null;
- try{
-  const prompt=`You are European Workers Union (EWU), a concise employment coordinator for Poland and Europe. Reply in language code ${lang}. Be practical, friendly, and do not invent job offers or legal guarantees. User: ${text}`;
-  const r=await generateText({model:AI_MODEL,prompt,providerOptions:{gateway:{tags:['product:ewu','feature:chat']}}});
-  return r.text.trim();
- }catch(e){console.error('AI chat',e.message);return null}
-}
-async function getSetting(key){
- const r=await q('SELECT value FROM ewu_settings WHERE key=$1',[key]);
- return r[0]?.value||'';
-}
-async function setSetting(key,value){
- await pool.query(`INSERT INTO ewu_settings(key,value,updated_at) VALUES($1,$2,now())
- ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=now()`,[key,String(value)]);
-}
-function applicationText(kind,data,ai,status){
- const title=kind==='candidate'?'👷 NEW CANDIDATE':kind==='employer'?'🏢 NEW EMPLOYER REQUEST':kind==='legal'?'📄 LEGALIZATION REQUEST':'📩 EWU REQUEST';
- const lines=[title,''];
- for(const [k,v] of Object.entries(data||{})){ if(v) lines.push(k.replaceAll('_',' ').toUpperCase()+': '+v); }
- if(ai?.score) lines.push('', 'SCORE: '+ai.score+'/10');
- if(status) lines.push('STATUS: '+status);
- if(ai?.summary) lines.push('', 'SUMMARY: '+ai.summary);
- return lines.join('\n').slice(0,3900);
-}
-async function notifyRecruitmentGroup(kind,data,ai,status){
- const chatId=await getSetting('recruitment_group_chat_id');
- if(!chatId) return;
- try{ await send(chatId,applicationText(kind,data,ai,status)); }
- catch(e){ console.error('group notify',e.message); }
-}
-
 async function finalize(msg,s,kind,data){
- let ai={summary:'',score:null};
- if(kind==='candidate') ai=await aiCandidate(data,s.lang);
- else ai.summary=await aiSummary(kind,data,s.lang);
- const status=kind==='candidate'?(ai.score>=8?'HOT CANDIDATE':ai.score>=6?'WARM CANDIDATE':'NEW'):'NEW';
- await pool.query('INSERT INTO ewu_applications(id,kind,telegram_id,username,language,full_name,phone,status,ai_score,ai_summary,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-  [uuid(),kind,msg.from.id,msg.from.username||'',s.lang,data.full_name||data.contact_person||'',data.phone||'',status,ai.score,ai.summary,JSON.stringify(data)]);
- if(kind==='candidate'){
-   try{
-     const note='EWU '+status+(ai.score?(' · score '+ai.score+'/10'):'')+'\n'+(ai.summary||'');
-     await pool.query("INSERT INTO candidates(id,full_name,phone,citizenship,city,source,status,notes,telegram_chat) VALUES($1,$2,$3,$4,$5,'EWU Telegram','Новий',$6,$7)",
-       [uuid(),data.full_name||'EWU candidate',data.phone||'',data.citizenship||'',data.current_location||'',note,String(msg.chat.id)]);
-   }catch(e){console.error('GreenWork candidate sync',e.message)}
- }
- await notifyRecruitmentGroup(kind,data,ai,status);
+ const status='NEW';
+ await pool.query('INSERT INTO ewu_applications(id,kind,telegram_id,language,full_name,phone,status,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+  [uuid(),kind,msg.from.id,s.lang,data.full_name||data.contact_person||'',data.phone||'',status,JSON.stringify(data)]);
+ // AI scoring, GreenWork sync and recruitment-group forwarding are disabled.
  await setSession(msg.from.id,s.lang,'menu',0,{});
  await send(msg.chat.id,L[s.lang].saved,menuKeyboard(s.lang));
 }
@@ -198,29 +121,15 @@ async function start(msg){
 async function handleFlow(msg,s,text){
  const f=flows[s.mode], lang=s.lang||'en', data=s.data||{}, idx=s.step||0, field=f.fields[idx];
  if((field==='phone')&&!phoneOk(text)){await send(msg.chat.id,f.q[lang][idx]+'\n\n⚠️ Please include the country code.');return}
- data[field]=text;
+ data[field]=text.slice(0,1000);
  if(idx+1<f.fields.length){await setSession(msg.from.id,lang,s.mode,idx+1,data);await send(msg.chat.id,f.q[lang][idx+1]);}
  else await finalize(msg,s,s.mode,data);
 }
 async function handle(msg){
  if(!msg?.from?.id) return;
  const text=String(msg.text||'').trim();
+ if(await privacyGate(msg)) return;
  if(!text) return;
-
- if(msg.chat?.type==='group' || msg.chat?.type==='supergroup'){
-   if(text.startsWith('/bindgroup')){
-     await setSetting('recruitment_group_chat_id',msg.chat.id);
-     return send(msg.chat.id,'✅ Цю групу прив’язано до EWU. Нові заявки будуть надходити сюди.');
-   }
-   if(text.startsWith('/unbindgroup')){
-     await setSetting('recruitment_group_chat_id','');
-     return send(msg.chat.id,'✅ Групу відв’язано від EWU.');
-   }
-   return;
- }
-
- await saveMsg(msg.from.id,'in',text);
- if(text==='/start'||text==='/reset') return start(msg);
  let s=await session(msg.from.id);
  if(!s) return start(msg);
  if(s.mode==='language'){
@@ -232,44 +141,45 @@ async function handle(msg){
  if(text===L[lang].menu){await setSession(msg.from.id,lang,'menu',0,{});return send(msg.chat.id,L[lang].welcome,menuKeyboard(lang))}
  if(['candidate','employer','legal'].includes(s.mode)) return handleFlow(msg,s,text);
  if(s.mode==='contact'){
-  const data={message:text};
-  await pool.query('INSERT INTO ewu_applications(id,kind,telegram_id,username,language,status,data) VALUES($1,$2,$3,$4,$5,$6,$7)',[uuid(),'contact',msg.from.id,msg.from.username||'',lang,'NEW',JSON.stringify(data)]);
+  const data={message:text.slice(0,1000)};
+  await pool.query('INSERT INTO ewu_applications(id,kind,telegram_id,username,language,status,data) VALUES($1,$2,$3,$4,$5,$6,$7)',[uuid(),'contact',msg.from.id,'',lang,'NEW',JSON.stringify(data)]);
   await setSession(msg.from.id,lang,'menu',0,{});
   return send(msg.chat.id,L[lang].saved,menuKeyboard(lang));
  }
  if(text===L[lang].candidate){await setSession(msg.from.id,lang,'candidate',0,{});return send(msg.chat.id,flows.candidate.q[lang][0])}
  if(text===L[lang].employer){await setSession(msg.from.id,lang,'employer',0,{});return send(msg.chat.id,flows.employer.q[lang][0])}
- if(text===L[lang].legal){await setSession(msg.from.id,lang,'legal',0,{});return send(msg.chat.id,flows.legal.q[lang][0])}
+ if(text===L[lang].legal){await setSession(msg.from.id,lang,'legal',0,{});return send(msg.chat.id,flows.legal.q[lang][0]+'\nDo not send identity documents, PESEL or medical data.')}
  if(text===L[lang].about) return send(msg.chat.id,L[lang].aboutText,menuKeyboard(lang));
  if(text===L[lang].contact){await setSession(msg.from.id,lang,'contact',0,{});return send(msg.chat.id,L[lang].contactAsk)}
- const a=await aiChat(text,lang);
- return send(msg.chat.id,a||L[lang].welcome,menuKeyboard(lang));
+ return send(msg.chat.id,L[lang].welcome,menuKeyboard(lang));
 }
 
 async function setup(){
  await init();
+ await privacyStore.init();
  try{await tg('deleteWebhook',{drop_pending_updates:false})}catch{}
  try{await tg('setMyName',{name:'European Workers Union'})}catch{}
  try{await tg('setMyDescription',{description:'EWU — jobs, workers and legalization support across Poland and Europe.'})}catch{}
  try{await tg('setMyCommands',{commands:[
  {command:'start',description:'Start / choose language'},
  {command:'reset',description:'Reset dialogue'},
- {command:'bindgroup',description:'Bind this group for EWU applications'},
- {command:'unbindgroup',description:'Unbind recruitment group'}
+ {command:'privacy',description:'Privacy notice'},
+ {command:'withdraw',description:'Stop processing / withdraw consent'},
+ {command:'delete_data',description:'Request data deletion'}
 ]})}catch{}
  try{
-   const me=await tg('getMe');
-   console.log('EWU Telegram @'+(me.username||'unknown')+' id='+me.id);
- }catch(e){console.error('getMe',e.message)}
+   await tg('getMe');
+   console.log('Telegram connection established');
+ }catch(e){console.error('operation_failed')}
  console.log('EWU production bot initialized. AI='+AI_ENABLED);
 }
 async function poll(){
  await setup();
  while(true){
   try{
-   const updates=await tg('getUpdates',{offset,timeout:50,allowed_updates:['message']});
-   for(const u of updates){offset=u.update_id+1;try{if(u.message)await handle(u.message)}catch(e){console.error('handle',e)}}
-  }catch(e){console.error('poll',e.message);await new Promise(r=>setTimeout(r,3000))}
+   const updates=await tg('getUpdates',{offset,timeout:50,allowed_updates:['message','callback_query']});
+   for(const u of updates){offset=u.update_id+1;try{if(u.callback_query) { const c=u.callback_query; if(c.message) await privacyGate({...c.message,from:c.from},c); } else if(u.message) await handle(u.message)}catch(e){console.error('operation_failed')}}
+  }catch(e){console.error('operation_failed');await new Promise(r=>setTimeout(r,3000))}
  }
 }
 http.createServer((req,res)=>{
@@ -281,4 +191,4 @@ http.createServer((req,res)=>{
   res.end(JSON.stringify({error:'Not found'}));
 }).listen(PORT,'0.0.0.0',()=>console.log('EWU health server on '+PORT));
 
-poll().catch(e=>{console.error(e);process.exit(1)});
+poll().catch(e=>{console.error('operation_failed');process.exit(1)});
