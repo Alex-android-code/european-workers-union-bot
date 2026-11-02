@@ -1,0 +1,117 @@
+{
+  "specs": {
+    "Candidates": [
+      "Candidate ID",
+      "Telegram ID",
+      "Telegram username",
+      "First name",
+      "Last name",
+      "Phone",
+      "Language",
+      "Current country",
+      "City",
+      "Desired work",
+      "Vacancy ID",
+      "Available from",
+      "Status",
+      "Coordinator ID",
+      "Registered at",
+      "Updated at",
+      "Notice version",
+      "Acknowledgement",
+      "Private notes reference",
+      "Revision"
+    ],
+    "Applications": [
+      "Application ID",
+      "Candidate ID",
+      "Vacancy ID",
+      "Status",
+      "Created at",
+      "Updated at",
+      "Revision",
+      "Requested status",
+      "Expected revision",
+      "Request ID",
+      "Request result"
+    ],
+    "Vacancies": [
+      "Vacancy ID",
+      "Title",
+      "Country",
+      "City",
+      "Workplace address",
+      "Start date",
+      "Coordinator ID",
+      "Status",
+      "Verified at"
+    ],
+    "Candidate Journey": [
+      "Event ID",
+      "Application ID",
+      "Candidate ID",
+      "From status",
+      "To status",
+      "Changed at",
+      "Source",
+      "Actor",
+      "Revision"
+    ],
+    "Coordinators": [
+      "Coordinator ID",
+      "Name",
+      "Google email",
+      "Telegram ID",
+      "Role",
+      "Active"
+    ],
+    "RODO Register": [
+      "Event ID",
+      "Candidate ID",
+      "Telegram ID",
+      "Notice version",
+      "Notice revision",
+      "Language",
+      "Presented at",
+      "Action",
+      "Action at",
+      "Purpose",
+      "Legal basis"
+    ],
+    "Data Requests": [
+      "Request ID",
+      "Candidate ID",
+      "Type",
+      "Requested at",
+      "Status",
+      "Assigned to",
+      "SQLite result",
+      "Sheets result",
+      "Other recipients result",
+      "Completed at"
+    ],
+    "Dashboard": [
+      "Показник",
+      "Значення"
+    ],
+    "Settings": [
+      "Setting",
+      "Value",
+      "Confirmation"
+    ]
+  },
+  "statuses": [
+    "NEW",
+    "FORM_COMPLETED",
+    "UNDER_REVIEW",
+    "APPROVED",
+    "DEPARTURE_CONFIRMED",
+    "ARRIVED",
+    "STARTED",
+    "REJECTED",
+    "WITHDRAWN",
+    "NO_SHOW",
+    "DID_NOT_START",
+    "FINISHED"
+  ]
+}

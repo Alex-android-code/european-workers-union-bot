@@ -7,9 +7,13 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlsplit
 
-UI = json.loads(Path(__file__).with_name('ui.json').read_text(encoding='utf-8'))
+LANGUAGES = ('uk', 'pl', 'ru', 'en', 'de', 'es', 'pt')
+# The legacy Node runtime has a separate catalogue. Python exposes exactly
+# the seven languages requested for this recovery.
+UI = {k:v for k,v in json.loads(Path(__file__).with_name('ui.json').read_text(encoding='utf-8')).items() if k in LANGUAGES}
+for _lang,_extra in json.loads(Path(__file__).with_name('extra_ui.json').read_text(encoding='utf-8')).items():UI[_lang].update(_extra)
 FIELDS = ('controller', 'contact', 'purposes', 'legal_basis', 'retention',
-          'recipients', 'transfers', 'rights', 'complaint', 'provision', 'automated')
+          'categories', 'sources', 'recipients', 'transfers', 'rights', 'complaint', 'provision', 'automated')
 
 
 def load_policy(path, raw_json=None):
@@ -63,10 +67,27 @@ class Store:
         self.db.execute('CREATE TABLE IF NOT EXISTS deletion_requests (user_id INTEGER PRIMARY KEY, requested_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT "pending")')
         self.db.execute('CREATE TABLE IF NOT EXISTS intake_sessions (user_id INTEGER PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL, at TEXT NOT NULL)')
         self.db.execute('CREATE TABLE IF NOT EXISTS applications (id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, kind TEXT NOT NULL, data TEXT NOT NULL, at TEXT NOT NULL)')
+        self.db.execute('CREATE TABLE IF NOT EXISTS data_requests (id TEXT PRIMARY KEY,user_id INTEGER NOT NULL,kind TEXT NOT NULL,at TEXT NOT NULL,status TEXT NOT NULL DEFAULT "pending",details TEXT NOT NULL DEFAULT "{}")')
+        self.db.execute('CREATE TABLE IF NOT EXISTS candidate_identity (user_id INTEGER PRIMARY KEY,candidate_id TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL)')
+        self.db.execute('CREATE TABLE IF NOT EXISTS user_locales (user_id INTEGER PRIMARY KEY,locale TEXT NOT NULL)')
+        self.db.execute('CREATE TABLE IF NOT EXISTS external_erasure_holds (application_id TEXT PRIMARY KEY,requested_at TEXT NOT NULL,status TEXT NOT NULL DEFAULT "pending")')
         self.db.commit()
 
     def close(self):
         self.db.close()
+
+    def set_locale(self,user_id,lang):
+        if lang not in UI:raise ValueError('Unsupported language')
+        with self.db:self.db.execute('INSERT INTO user_locales VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET locale=excluded.locale',(user_id,lang))
+
+    def locale(self,user_id):
+        row=self.db.execute('SELECT locale FROM user_locales WHERE user_id=?',(user_id,)).fetchone()
+        return row[0] if row and row[0] in UI else None
+
+    def candidate_id(self,user_id):
+        with self.db:
+            self.db.execute('INSERT OR IGNORE INTO candidate_identity VALUES(?,?,?)',(user_id,'EWU-'+uuid.uuid4().hex,self.clock().isoformat()))
+        return self.db.execute('SELECT candidate_id FROM candidate_identity WHERE user_id=?',(user_id,)).fetchone()[0]
 
     def purge(self):
         cutoff = (self.clock() - timedelta(days=self.policy['audit_retention_days'])).isoformat()
@@ -74,15 +95,28 @@ class Store:
             self.db.execute('DELETE FROM privacy_events WHERE at < ?', (cutoff,))
             application_cutoff = (self.clock() - timedelta(days=self.policy['application_retention_days'])).isoformat()
             self.db.execute('DELETE FROM intake_sessions WHERE at < ?', (application_cutoff,))
-            self.db.execute('DELETE FROM applications WHERE at < ?', (application_cutoff,))
+            if self.db.execute("SELECT 1 FROM sqlite_master WHERE name='crm_outbox'").fetchone():
+                # Preserve a resolvable erasure reference for confirmed external
+                # copies. Do not silently orphan a Google row on local expiry.
+                self.db.execute('''INSERT OR IGNORE INTO external_erasure_holds(application_id,requested_at)
+                  SELECT a.id,? FROM applications a WHERE a.at < ? AND EXISTS
+                  (SELECT 1 FROM crm_outbox o WHERE o.application_id=a.id AND o.status='sent')''',
+                  (self.clock().isoformat(),application_cutoff))
+                self.db.execute('''DELETE FROM applications WHERE at < ? AND id NOT IN
+                  (SELECT application_id FROM external_erasure_holds WHERE status='pending')''',(application_cutoff,))
+                self.db.execute("UPDATE applications SET data='{}' WHERE id IN (SELECT application_id FROM external_erasure_holds WHERE status='pending')")
+            else:self.db.execute('DELETE FROM applications WHERE at < ?', (application_cutoff,))
+            self.db.execute('''DELETE FROM candidate_identity WHERE created_at < ?
+              AND user_id NOT IN (SELECT user_id FROM applications)
+              AND user_id NOT IN (SELECT user_id FROM data_requests WHERE status='pending')''',(application_cutoff,))
         # Pending rights requests are never silently expired; operator must resolve them.
 
     def record(self, user_id, action, lang):
-        if action not in ('acknowledged', 'declined', 'withdrawn', 'deletion_requested'):
+        if lang not in UI or action not in ('presented', 'acknowledged', 'declined', 'withdrawn', 'restricted', 'deletion_requested'):
             raise ValueError('Unknown privacy action')
         self.purge()
-        previous=self.db.execute('SELECT action,revision FROM privacy_events WHERE user_id=? ORDER BY id DESC LIMIT 1',(user_id,)).fetchone()
-        clear_intake=(action != 'acknowledged' or previous != ('acknowledged', revision(self.policy)))
+        previous=self.db.execute("SELECT action,revision FROM privacy_events WHERE user_id=? AND action!='presented' ORDER BY id DESC LIMIT 1",(user_id,)).fetchone()
+        clear_intake=(action != 'presented' and (action != 'acknowledged' or previous != ('acknowledged', revision(self.policy))))
         with self.db:
             self.db.execute('INSERT INTO privacy_events(user_id,action,revision,version,locale,notice,at) VALUES(?,?,?,?,?,?,?)',
                             (user_id, action, revision(self.policy), self.policy['version'], lang,
@@ -93,9 +127,21 @@ class Store:
                 self.db.execute('INSERT INTO deletion_requests(user_id,requested_at) VALUES(?,?) ON CONFLICT(user_id) DO NOTHING',
                                 (user_id, self.clock().isoformat()))
 
+    def request(self, user_id, kind, details=None):
+        if kind not in ('rectification','restriction','portability','erasure','objection'):
+            raise ValueError('Unsupported rights request')
+        encoded=json.dumps(details or {},ensure_ascii=False,sort_keys=True)
+        old=self.db.execute('SELECT id FROM data_requests WHERE user_id=? AND kind=? AND details=? AND status="pending"',(user_id,kind,encoded)).fetchone()
+        if old:return old[0]
+        request_id=str(uuid.uuid4())
+        with self.db:
+            self.db.execute('INSERT INTO data_requests(id,user_id,kind,at,details) VALUES(?,?,?,?,?)',
+                            (request_id,user_id,kind,self.clock().isoformat(),encoded))
+        return request_id
+
     def allowed(self, user_id):
         self.purge()
-        row = self.db.execute('SELECT action,revision FROM privacy_events WHERE user_id=? ORDER BY id DESC LIMIT 1', (user_id,)).fetchone()
+        row = self.db.execute("SELECT action,revision FROM privacy_events WHERE user_id=? AND action!='presented' ORDER BY id DESC LIMIT 1", (user_id,)).fetchone()
         pending = self.db.execute('SELECT 1 FROM deletion_requests WHERE user_id=? AND status="pending"', (user_id,)).fetchone()
         return not pending and row is not None and row == ('acknowledged', revision(self.policy))
 
@@ -121,8 +167,17 @@ class Store:
         data[field] = value[:1000]
         with self.db:
             if completed:
+                encoded=json.dumps(data,ensure_ascii=False,sort_keys=True)
+                for old_id,old_data in self.db.execute('SELECT id,data FROM applications WHERE user_id=? AND kind=?',(user_id,kind)):
+                    if json.loads(old_data)==data:
+                        if self.db.execute("SELECT 1 FROM sqlite_master WHERE name='candidate_journey'").fetchone():
+                            old=self.db.execute('SELECT policy_revision,status FROM candidate_journey WHERE application_id=?',(old_id,)).fetchone()
+                            if old and (old[0]!=revision(self.policy) or old[1] in ('FINISHED','CLOSED','WITHDRAWN','REJECTED','NO_SHOW','DID_NOT_START')):continue
+                        self.db.execute('DELETE FROM intake_sessions WHERE user_id=?',(user_id,))
+                        return old_id
                 self.db.execute('INSERT INTO applications(id,user_id,kind,data,at) VALUES(?,?,?,?,?)',
-                                (application_id := str(uuid.uuid4()), user_id, kind, json.dumps(data, ensure_ascii=False), self.clock().isoformat()))
+                                (application_id := str(uuid.uuid4()), user_id, kind, encoded, self.clock().isoformat()))
+                self.db.execute('INSERT OR IGNORE INTO candidate_identity VALUES(?,?,?)',(user_id,'EWU-'+uuid.uuid4().hex,self.clock().isoformat()))
                 if self.db.execute("SELECT 1 FROM sqlite_master WHERE name='candidate_journey'").fetchone():
                     locale=self.db.execute('SELECT locale FROM privacy_events WHERE user_id=? ORDER BY id DESC LIMIT 1',(user_id,)).fetchone()[0]
                     self.db.execute('INSERT INTO candidate_journey(application_id,policy_revision,locale,updated_at) VALUES(?,?,?,?)',

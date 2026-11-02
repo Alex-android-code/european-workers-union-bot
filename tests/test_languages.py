@@ -12,10 +12,9 @@ from test_privacy import FakeBot, fixture
 ORIGINAL = {'uk', 'pl', 'ru', 'en', 'de', 'es', 'pt'}
 
 class LanguageTests(unittest.TestCase):
-    def test_original_seven_and_recovery_language_are_complete(self):
-        self.assertTrue(ORIGINAL <= UI.keys())
+    def test_exactly_original_seven_are_complete(self):
+        self.assertEqual(ORIGINAL, set(UI))
         self.assertEqual(set(UI), set(TEXT))
-        self.assertIn('uz', UI)
         example=json.loads(Path('privacy/policy.example.json').read_text())
         self.assertEqual(set(example['notices']), set(UI))
         with self.assertRaises(ValueError): load_policy(None, json.dumps(example))
@@ -38,6 +37,8 @@ class LanguageTests(unittest.TestCase):
                     def msg(text):
                         return NS(text=text,chat=NS(id=42,type='private'),from_user=NS(id=42,language_code='uk',is_bot=False))
                     fake.handle(msg('/start'))
+                    fake.callback(NS(id='language',data=f'lang:{lang}',message=msg(''),from_user=NS(id=42)))
+                    self.assertIn(UI[lang]['title'],fake.sent[-1][1])
                     fake.callback(NS(id='test',data=f'p:{revision(policy)}:{lang}:yes',message=msg(''),from_user=NS(id=42)))
                     self.assertTrue(fake.sent[-1][1].startswith(TEXT[lang]['menu']))
                     keyboard=json.loads(fake.sent[-1][2]['reply_markup'].to_json())['keyboard']

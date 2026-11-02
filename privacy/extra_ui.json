@@ -1,0 +1,30 @@
+{
+  "uk": {
+    "categories": "Категорії даних",
+    "sources": "Джерела даних"
+  },
+  "pl": {
+    "categories": "Kategorie danych",
+    "sources": "Źródła danych"
+  },
+  "ru": {
+    "categories": "Категории данных",
+    "sources": "Источники данных"
+  },
+  "en": {
+    "categories": "Data categories",
+    "sources": "Data sources"
+  },
+  "de": {
+    "categories": "Datenkategorien",
+    "sources": "Datenquellen"
+  },
+  "es": {
+    "categories": "Categorías de datos",
+    "sources": "Fuentes de datos"
+  },
+  "pt": {
+    "categories": "Categorias de dados",
+    "sources": "Fontes dos dados"
+  }
+}
