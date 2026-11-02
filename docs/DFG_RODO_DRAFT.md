@@ -24,3 +24,11 @@ Status: DRAFT — not a published privacy notice or approved legal policy. Do no
 Current railway_start.py requires EWU_START_ALLOWED=1, EWU_MAINTENANCE=0 and load_policy() success. No fake notices, placeholder URLs or arbitrary legal bases should be used to bypass the gate. Leave CRM candidate transmission off until Google Sheets and deletion process are verified.
 
 Source of registration data: screenshot provided by owner, not independently verified in KRS.
+
+## Retention implementation decision (2026-11-02)
+- Active recruitment: retain while the specific application is genuinely being processed; close promptly when the recruitment ends.
+- Future vacancies: optional, separate opt-in with a proposed maximum of 365 days, **not currently implemented**; do not treat general RODO acknowledgement as marketing/future-recruitment consent.
+- Pending deletion requests: preserve as actionable requests until handled, not as an excuse to retain the entire application.
+- Employment/personnel records: separate system and statutory rules; do not apply candidate-bot TTL to employee records.
+- Technical gap confirmed: `Store.purge()` uses a single `application_retention_days` age threshold for all applications, irrespective of candidate journey status. `Journey.cleanup()` removes associated local journey/outbox records after application purge, but this does **not** erase previously synchronized Google Sheets copies. This is not sufficient to claim full GDPR-compliant retention/deletion.
+- Required next change: explicit purpose/status and separate future-vacancy opt-in, closure-based expiry, rights-request workflow for external copies, and tested retention cleanup. Keep CRM write disabled until those checks pass.
