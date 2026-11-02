@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY bot.py bot_text.py recruitment.py crm_sync.py railway_start.py polling_lock.py ./
+COPY privacy/ ./privacy/
+CMD ["python", "railway_start.py"]
