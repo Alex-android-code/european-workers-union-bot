@@ -60,7 +60,7 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
         kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
         for key in ('candidate','employer','legal','about','contact'):
             kb.add(telebot.types.KeyboardButton(words[key]))
-        bot.send_message(chat_id, words['menu'] + '\n/privacy /my_data /withdraw /delete_data', reply_markup=kb)
+        bot.send_message(chat_id, words['menu'] + '\n/privacy /my_data /withdraw /delete_data /future_opt_in /future_opt_out /future_status', reply_markup=kb)
 
     @bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'document', 'contact', 'voice', 'video', 'audio', 'location', 'sticker'])
     def handle(message):
@@ -91,6 +91,26 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
             journey.pause(user_id)
             answer = UI[lang]['stopped'] if action == 'withdrawn' else UI[lang]['deleted'] + current['notices'][lang]['contact']
             bot.send_message(message.chat.id, answer, reply_markup=telebot.types.ReplyKeyboardRemove())
+            return
+        if command in ('/future_opt_in', '/future_opt_out', '/future_status'):
+            if command == '/future_opt_in':
+                if not store.allowed(user_id):
+                    notice(message.chat.id, current)
+                    return
+                kb = telebot.types.InlineKeyboardMarkup()
+                kb.row(
+                    telebot.types.InlineKeyboardButton('YES — optional 365-day future vacancies', callback_data='future:yes'),
+                    telebot.types.InlineKeyboardButton('NO', callback_data='future:no'))
+                bot.send_message(message.chat.id,
+                    'OPTIONAL: May DFG Sp. z o.o. retain your candidate profile for matching with future vacancies for up to 365 days? '
+                    'You may withdraw at any time using /future_opt_out. '
+                    'This choice does not affect your current application.', reply_markup=kb)
+            elif command == '/future_opt_out':
+                store.set_future_recruitment_consent(user_id, False)
+                bot.send_message(message.chat.id, 'Future vacancy consent withdrawn. Current application is unaffected.')
+            else:
+                bot.send_message(message.chat.id, 'Future vacancy consent: ' +
+                    ('active' if store.future_recruitment_allowed(user_id) else 'not active'))
             return
         if command == '/my_data':
             body=json.dumps(journey.export_own(user_id),ensure_ascii=False,indent=2)
@@ -175,6 +195,27 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
             menu(call.message.chat.id,lang)
         else:
             bot.send_message(call.message.chat.id, UI[lang]['stopped'], reply_markup=telebot.types.ReplyKeyboardRemove())
+
+    @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith('future:'))
+    def future_callback(call):
+        if not call.message or call.message.chat.type != 'private' or call.message.chat.id != call.from_user.id:
+            return
+        bot.answer_callback_query(call.id)
+        current = policy()
+        if current is None:
+            notice(call.message.chat.id, None)
+            return
+        choice = call.data.split(':', 1)[1]
+        if choice not in ('yes', 'no'):
+            return
+        store = state['store']
+        if choice == 'yes' and not store.allowed(call.from_user.id):
+            notice(call.message.chat.id, current)
+            return
+        store.set_future_recruitment_consent(call.from_user.id, choice == 'yes')
+        bot.send_message(call.message.chat.id,
+            'Optional future vacancy consent recorded (365 days).' if choice == 'yes'
+            else 'Future vacancy consent not granted / withdrawn.')
 
     return bot
 
