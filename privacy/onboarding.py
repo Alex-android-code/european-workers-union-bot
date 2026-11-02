@@ -63,6 +63,7 @@ class Store:
         self.db.execute('CREATE TABLE IF NOT EXISTS deletion_requests (user_id INTEGER PRIMARY KEY, requested_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT "pending")')
         self.db.execute('CREATE TABLE IF NOT EXISTS intake_sessions (user_id INTEGER PRIMARY KEY, kind TEXT NOT NULL, data TEXT NOT NULL, at TEXT NOT NULL)')
         self.db.execute('CREATE TABLE IF NOT EXISTS applications (id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, kind TEXT NOT NULL, data TEXT NOT NULL, at TEXT NOT NULL)')
+        self.db.execute('CREATE TABLE IF NOT EXISTS future_recruitment_consents (user_id INTEGER PRIMARY KEY, granted_at TEXT NOT NULL, expires_at TEXT NOT NULL, withdrawn_at TEXT)')
         self.db.commit()
 
     def close(self):
@@ -77,6 +78,34 @@ class Store:
             self.db.execute('DELETE FROM applications WHERE at < ?', (application_cutoff,))
         # Pending rights requests are never silently expired; operator must resolve them.
 
+    def set_future_recruitment_consent(self, user_id, granted):
+        """Separate optional opt-in. A RODO acknowledgement alone is never consent."""
+        if type(granted) is not bool:
+            raise ValueError('Explicit boolean choice required')
+        if granted and not self.allowed(user_id):
+            raise ValueError('Current privacy onboarding required')
+        now = self.clock()
+        with self.db:
+            if granted:
+                expires = (now + timedelta(days=365)).isoformat()
+                self.db.execute(
+                    'INSERT INTO future_recruitment_consents(user_id,granted_at,expires_at,withdrawn_at) '
+                    'VALUES(?,?,?,NULL) ON CONFLICT(user_id) DO UPDATE SET '
+                    'granted_at=excluded.granted_at,expires_at=excluded.expires_at,withdrawn_at=NULL',
+                    (user_id, now.isoformat(), expires))
+            else:
+                self.db.execute(
+                    'UPDATE future_recruitment_consents SET withdrawn_at=? WHERE user_id=? AND withdrawn_at IS NULL',
+                    (now.isoformat(), user_id))
+
+    def future_recruitment_allowed(self, user_id):
+        if not self.allowed(user_id):
+            return False
+        row = self.db.execute(
+            'SELECT expires_at,withdrawn_at FROM future_recruitment_consents WHERE user_id=?',
+            (user_id,)).fetchone()
+        return bool(row and row[1] is None and row[0] > self.clock().isoformat())
+
     def record(self, user_id, action, lang):
         if action not in ('acknowledged', 'declined', 'withdrawn', 'deletion_requested'):
             raise ValueError('Unknown privacy action')
@@ -89,6 +118,8 @@ class Store:
                              render(self.policy, lang), self.clock().isoformat()))
             if clear_intake:
                 self.db.execute('DELETE FROM intake_sessions WHERE user_id=?', (user_id,))
+            if action in ('withdrawn', 'deletion_requested', 'declined'):
+                self.db.execute('UPDATE future_recruitment_consents SET withdrawn_at=? WHERE user_id=? AND withdrawn_at IS NULL', (self.clock().isoformat(), user_id))
             if action == 'deletion_requested':
                 self.db.execute('INSERT INTO deletion_requests(user_id,requested_at) VALUES(?,?) ON CONFLICT(user_id) DO NOTHING',
                                 (user_id, self.clock().isoformat()))
