@@ -111,6 +111,8 @@ class RecoveryTests(unittest.TestCase):
   policy_path=Path(self.tmp.name)/'policy.json';policy_path.write_text(json.dumps(self.policy))
   out=preflight(dict(TELEGRAM_TOKEN='TEST',PRIVACY_CONFIG_FILE=str(policy_path),PRIVACY_DB_PATH=str(self.path),EWU_START_ALLOWED='1',EWU_MAINTENANCE='0'))
   self.assertTrue(out['ready']);self.assertFalse(out['paid_api_calls'])
+  env=dict(TELEGRAM_TOKEN='TEST',PRIVACY_CONFIG_JSON=json.dumps(self.policy),PRIVACY_DB_PATH=str(self.path),EWU_START_ALLOWED='1',EWU_MAINTENANCE='0')
+  self.assertTrue(preflight(env)['ready'])
  def test_bot_pipeline_and_rights_after_policy_config_disappears(self):
   path=Path(self.tmp.name)/'policy.json';path.write_text(json.dumps(self.policy));fake=FakeBot()
   create_bot(None,path,self.path,fake,admin_ids=[99])

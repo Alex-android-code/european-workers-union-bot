@@ -16,7 +16,7 @@ def preflight(env):
  if env.get('EWU_START_ALLOWED')!='1':issues.append('EWU_START_ALLOWED must equal 1')
  if env.get('EWU_MAINTENANCE','1')!='0':issues.append('EWU_MAINTENANCE must equal 0')
  policy_path=env.get('PRIVACY_CONFIG_FILE','')
- try:load_policy(policy_path)
+ try:load_policy(policy_path, env.get('PRIVACY_CONFIG_JSON'))
  except (OSError,ValueError,TypeError,KeyError):issues.append('Reviewed privacy policy missing or incomplete')
  try:crm=crm_config(env)
  except (ValueError,TypeError):issues.append('CRM configuration rejected');crm=None
@@ -32,7 +32,7 @@ def maintenance(stop,env):
  # A dedicated connection per thread; no Telegram or database payloads in logs.
  while not stop.wait(60):
   try:
-   policy=load_policy(env['PRIVACY_CONFIG_FILE'])
+   policy=load_policy(env.get('PRIVACY_CONFIG_FILE',''),env.get('PRIVACY_CONFIG_JSON'))
    store=Store(env.get('PRIVACY_DB_PATH','/data/ewu/privacy.sqlite3'),policy)
    try:Journey(store).cleanup();flush(store,env)
    finally:store.close()

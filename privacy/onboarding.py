@@ -12,8 +12,8 @@ FIELDS = ('controller', 'contact', 'purposes', 'legal_basis', 'retention',
           'recipients', 'transfers', 'rights', 'complaint', 'provision', 'automated')
 
 
-def load_policy(path):
-    policy = json.loads(Path(path).read_text(encoding='utf-8'))
+def load_policy(path, raw_json=None):
+    policy = json.loads(raw_json if raw_json is not None else Path(path).read_text(encoding='utf-8'))
     if not isinstance(policy.get('version'), str) or not policy['version'].strip():
         raise ValueError('Missing policy version')
     if policy.get('core_legal_basis') not in ('art6_1_b', 'art6_1_c', 'art6_1_f'):

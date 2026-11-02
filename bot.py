@@ -33,7 +33,7 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
 
     def policy():
         try:
-            current = load_policy(policy_path)
+            current = load_policy(policy_path, os.environ.get('PRIVACY_CONFIG_JSON'))
             if state['store'] is None:
                 state['store'] = Store(database_path, current)
                 state['journey'] = Journey(state['store'], admin_ids)
@@ -182,7 +182,7 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
 def run():
     if os.environ.get('EWU_START_ALLOWED') != '1' or os.environ.get('EWU_MAINTENANCE', '1') != '0':
         raise RuntimeError('EWU polling is locked')
-    load_policy(os.environ.get('PRIVACY_CONFIG_FILE',''))
+    load_policy(os.environ.get('PRIVACY_CONFIG_FILE',''),os.environ.get('PRIVACY_CONFIG_JSON'))
     # SDK exception logs can include Telegram URLs containing the token.
     telebot.logger.disabled = True
     bot = create_bot(os.environ['TELEGRAM_TOKEN'], os.environ.get('PRIVACY_CONFIG_FILE', ''),
