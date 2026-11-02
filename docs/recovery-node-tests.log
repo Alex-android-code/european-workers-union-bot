@@ -1,0 +1,29 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> european-workers-union-bot@1.0.0 test
+> node tests/privacy.test.js && node tests/privacy-pg.test.js
+
+✔ four notices, no intake before acknowledgement; positive flow (3.696961ms)
+✔ decline, withdrawal, deletion and user isolation (2.260128ms)
+✔ policy text change, stale buttons, malformed callbacks (2.240359ms)
+✔ missing legal data and group updates fail closed (0.493035ms)
+✔ URL, retention and notice size validated (0.53585ms)
+✔ PgStore writes snapshot and request transactionally with parameters (1.251443ms)
+✔ PgStore rolls back and never logs DB errors (0.580678ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.564896
+✔ PostgreSQL schema, privacy events, retention and durable deletion gate (1502.087478ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1510.463917

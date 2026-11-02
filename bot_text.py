@@ -1,0 +1,25 @@
+"""Small reviewed flow catalogue; no paid translation call at runtime."""
+TEXT = {
+ 'uk': dict(menu='EWU — оберіть дію',candidate='👷 Шукаю роботу',employer='🏢 Шукаю працівників',legal='📄 Легалізація і документи',about='ℹ️ Про EWU',contact='📞 Координатор',
+  candidate_q=['Ваше ім’я?','У якому місті ви зараз?','Контактний телефон із кодом країни?','Яку роботу шукаєте?'],
+  employer_q=['Назва компанії?','Місто роботи?','Які працівники потрібні? Не вказуйте чужі персональні дані.','Контактний телефон із кодом країни?'],
+  legal_q=['Якої країни стосується запит?','Коротке загальне питання. Не надсилайте документи, PESEL або медичні дані.','Контактний телефон із кодом країни?'],
+  saved='Заявку збережено. Це ще не підтвердження працевлаштування. /status — стан; /arrival — погоджений план прибуття.',
+  no_plan='Погодженого актуального плану прибуття ще немає. Не вирушайте без підтвердження координатора.',
+  no_apps='У вас немає збережених заявок.',phone='Вкажіть коректний телефон із кодом країни.',progress='Крок',unknown='Оберіть дію в меню. Повідомлення не пересилається координатору автоматично.'),
+ 'pl': dict(menu='EWU — wybierz opcję',candidate='👷 Szukam pracy',employer='🏢 Szukam pracowników',legal='📄 Legalizacja i dokumenty',about='ℹ️ O EWU',contact='📞 Koordynator',
+  candidate_q=['Jak masz na imię?','W jakim mieście teraz jesteś?','Telefon kontaktowy z kodem kraju?','Jakiej pracy szukasz?'],
+  employer_q=['Nazwa firmy?','Miasto pracy?','Jakich pracowników potrzebujecie? Nie podawaj danych innych osób.','Telefon kontaktowy z kodem kraju?'],
+  legal_q=['Jakiego kraju dotyczy pytanie?','Krótko opisz ogólne pytanie. Nie wysyłaj dokumentów, PESEL ani danych medycznych.','Telefon kontaktowy z kodem kraju?'],
+  saved='Zgłoszenie zapisano. Nie oznacza to potwierdzenia zatrudnienia. /status — stan; /arrival — uzgodniony plan przyjazdu.',no_plan='Brak uzgodnionego aktualnego planu przyjazdu. Nie wyjeżdżaj bez potwierdzenia koordynatora.',no_apps='Brak zapisanych zgłoszeń.',phone='Podaj poprawny telefon z kodem kraju.',progress='Krok',unknown='Wybierz opcję w menu. Wiadomość nie jest automatycznie przekazywana koordynatorowi.'),
+ 'ru': dict(menu='EWU — выберите действие',candidate='👷 Ищу работу',employer='🏢 Ищу работников',legal='📄 Легализация и документы',about='ℹ️ Об EWU',contact='📞 Координатор',
+  candidate_q=['Ваше имя?','В каком городе вы сейчас?','Контактный телефон с кодом страны?','Какую работу ищете?'],
+  employer_q=['Название компании?','Город работы?','Какие работники нужны? Не указывайте чужие персональные данные.','Контактный телефон с кодом страны?'],
+  legal_q=['Какой страны касается вопрос?','Короткий общий вопрос. Не отправляйте документы, PESEL или медицинские данные.','Контактный телефон с кодом страны?'],
+  saved='Заявка сохранена. Это ещё не подтверждение трудоустройства. /status — состояние; /arrival — согласованный план приезда.',no_plan='Согласованного актуального плана приезда пока нет. Не выезжайте без подтверждения координатора.',no_apps='Сохранённых заявок нет.',phone='Укажите правильный телефон с кодом страны.',progress='Шаг',unknown='Выберите действие в меню. Сообщение не пересылается координатору автоматически.'),
+ 'uz': dict(menu='EWU — amalni tanlang',candidate='👷 Ish qidiryapman',employer='🏢 Ishchilar qidiryapman',legal='📄 Qonuniylashtirish va hujjatlar',about='ℹ️ EWU haqida',contact='📞 Koordinator',
+  candidate_q=['Ismingiz?','Hozir qaysi shahardasiz?','Davlat kodi bilan aloqa telefoningiz?','Qanday ish qidiryapsiz?'],
+  employer_q=['Kompaniya nomi?','Ish shahri?','Qanday ishchilar kerak? Boshqa shaxslarning ma’lumotlarini yozmang.','Davlat kodi bilan aloqa telefoningiz?'],
+  legal_q=['Savol qaysi mamlakatga tegishli?','Umumiy savolni qisqacha yozing. Hujjat, PESEL yoki tibbiy ma’lumot yubormang.','Davlat kodi bilan aloqa telefoningiz?'],
+  saved='Ariza saqlandi. Bu ishga qabul tasdig‘i emas. /status — holat; /arrival — kelishilgan kelish rejasi.',no_plan='Hozircha tasdiqlangan kelish rejasi yo‘q. Koordinator tasdig‘isiz yo‘lga chiqmang.',no_apps='Saqlangan arizalar yo‘q.',phone='Davlat kodi bilan to‘g‘ri telefon raqamini yozing.',progress='Bosqich',unknown='Menyudan amal tanlang. Xabar koordinatorga avtomatik yuborilmaydi.')
+}
