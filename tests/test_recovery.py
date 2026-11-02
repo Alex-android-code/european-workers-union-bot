@@ -118,7 +118,7 @@ class RecoveryTests(unittest.TestCase):
   create_bot(None,path,self.path,fake,admin_ids=[99])
   def msg(t):return NS(text=t,chat=NS(id=42,type='private'),from_user=NS(id=42,language_code='uk',is_bot=False))
   for text in ['👷 Шукаю роботу','TEST NAME','TEST CITY','+48123456789','TEST WORK']:fake.handle(msg(text))
-  fake.handle(msg('/status'));self.assertIn('NEW',fake.sent[-1][1])
+  fake.handle(msg('/status'));self.assertIn('Новий',fake.sent[-1][1])
   fake.handle(msg('/arrival'));self.assertIn('ще немає',fake.sent[-1][1])
   path.unlink();fake.handle(msg('/my_data'));self.assertIn('TEST NAME',fake.sent[-1][1])
   fake.handle(msg('/delete_data'));self.assertFalse(self.store.allowed(42))

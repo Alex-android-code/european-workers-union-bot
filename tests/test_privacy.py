@@ -51,36 +51,41 @@ class PrivacyTests(unittest.TestCase):
     def msg(self, text, user=42, kind='private'):
         return NS(text=text, chat=NS(id=user, type=kind), from_user=NS(id=user, language_code='uk', is_bot=False))
     def click(self, action='yes', key=None, user=42, lang='uk'):
+        self.fake.callback(NS(id='language',data=f'lang:{lang}',message=self.msg('notice',user),from_user=NS(id=user)))
         self.fake.callback(NS(id='test', data=f'p:{key or revision(self.p)}:{lang}:{action}',
                               message=self.msg('notice', user), from_user=NS(id=user)))
     def store(self):
         s=Store(self.db, self.p)
         self.addCleanup(s.close)
         return s
-    def test_start_displays_all_supported_notices_without_record_or_questionnaire(self):
+    def test_start_selects_language_then_displays_one_notice(self):
         self.fake.handle(self.msg('/start'))
-        self.assertEqual(len(self.fake.sent), len(UI))
-        for lang, (_, text, options) in zip(UI, self.fake.sent):
+        self.assertEqual(len(self.fake.sent),1)
+        self.assertEqual(len(self.fake.sent[0][2]['reply_markup'].to_dict()['inline_keyboard']),7)
+        self.assertEqual(self.store().db.execute('SELECT count(*) FROM privacy_events').fetchone()[0],0)
+        for lang in UI:
+            self.fake.callback(NS(id='language',data=f'lang:{lang}',message=self.msg(''),from_user=NS(id=42)))
+            _,text,options=self.fake.sent[-1]
             self.assertIn(UI[lang]['title'], text)
             self.assertIn(UI[lang]['policy'] + ':', text)
             self.assertIn(UI[lang]['note'], text)
             self.assertNotIn('Please send your name', text)
             self.assertIn('inline_keyboard', options['reply_markup'].to_dict())
         self.assertFalse(self.store().allowed(42))
-        self.assertEqual(self.store().db.execute('SELECT count(*) FROM privacy_events').fetchone()[0], 0)
+        self.assertEqual(self.store().db.execute("SELECT count(*) FROM privacy_events WHERE action='presented'").fetchone()[0],7)
     def test_acknowledgement_enables_menu_and_records_exact_text(self):
-        self.click(lang='uz')
+        self.click(lang='pl')
         s=self.store()
         self.assertTrue(s.allowed(42))
-        row=s.db.execute('SELECT user_id,action,version,notice,at FROM privacy_events').fetchone()
-        self.assertEqual(row[:4], (42,'acknowledged','test-v1',render(self.p,'uz')))
+        row=s.db.execute("SELECT user_id,action,version,notice,at FROM privacy_events WHERE action='acknowledged'").fetchone()
+        self.assertEqual(row[:4], (42,'acknowledged','test-v1',render(self.p,'pl')))
         self.assertTrue(datetime.fromisoformat(row[4]).tzinfo)
-        self.assertIn('EWU — amalni tanlang', self.fake.sent[-1][1])
+        self.assertIn('EWU — wybierz opcję', self.fake.sent[-1][1])
     def test_pre_onboarding_text_never_saved_or_forwarded(self):
         self.fake.handle(self.msg('PRIVATE PASSPORT 12345'))
         s=self.store()
         self.assertFalse(s.allowed(42))
-        self.assertEqual(s.db.execute('SELECT count(*) FROM privacy_events').fetchone()[0],0)
+        self.assertEqual(s.db.execute("SELECT count(*) FROM privacy_events WHERE action!='presented'").fetchone()[0],0)
         self.assertNotIn('PRIVATE PASSPORT', repr(self.fake.sent))
     def test_decline_blocks_and_isolated_from_other_users(self):
         self.click('no')
@@ -151,8 +156,8 @@ class PrivacyTests(unittest.TestCase):
         self.path.unlink()
         self.fake.sent.clear()
         self.fake.handle(self.msg('/start'))
-        self.assertEqual(len(self.fake.sent),len(UI))
-        self.assertNotIn('callback_data',repr(self.fake.sent))
+        self.assertEqual(len(self.fake.sent),1)
+        self.assertNotIn("callback_data': 'p:",repr(self.fake.sent))
     def test_selected_intake_is_saved_only_after_acknowledgement(self):
         self.fake.handle(self.msg('👷 I’m looking for work'))
         self.assertEqual(self.store().db.execute('SELECT count(*) FROM intake_sessions').fetchone()[0],0)

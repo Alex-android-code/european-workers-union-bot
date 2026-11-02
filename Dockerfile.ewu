@@ -3,6 +3,6 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY bot.py bot_text.py recruitment.py crm_sync.py railway_start.py polling_lock.py ./
+COPY bot.py bot_text.py recruitment.py crm_sync.py crm_commands.py crm_operational.py railway_start.py polling_lock.py operations.py statuses.py ./
 COPY privacy/ ./privacy/
 CMD ["python", "railway_start.py"]

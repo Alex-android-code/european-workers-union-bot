@@ -6,4 +6,10 @@ node_modules/
 privacy.local.json
 *.sqlite3
 *.sqlite3-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+backups/
+last-reviewed-policy.json
 

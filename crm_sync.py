@@ -64,7 +64,7 @@ def flush(store,environment,transport=None):
   try:
    event=store.db.execute('SELECT status,attempts FROM crm_outbox WHERE id=?',(item['event_id'],)).fetchone()
    row=journey._row(item['application_id'])
-   ack=store.db.execute('SELECT action,revision FROM privacy_events WHERE user_id=? ORDER BY id DESC LIMIT 1',(row['user_id'],)).fetchone()
+   ack=store.db.execute("SELECT action,revision FROM privacy_events WHERE user_id=? AND action!='presented' ORDER BY id DESC LIMIT 1",(row['user_id'],)).fetchone()
    pending=store.db.execute('SELECT 1 FROM deletion_requests WHERE user_id=? AND status="pending"',(row['user_id'],)).fetchone()
    if (not event or event[0]!='pending' or pending or ack!=('acknowledged',revision(store.policy))
        or row['policy_revision']!=revision(store.policy) or row['revision']!=item['revision']):

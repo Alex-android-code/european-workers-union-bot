@@ -51,3 +51,16 @@ TEXT.update({
   saved='Pedido guardado. Isto não confirma a contratação. /status — estado; /arrival — plano de chegada acordado.',
   no_plan='Ainda não existe um plano de chegada atual e acordado. Não viaje sem confirmação do coordenador.',no_apps='Não tem pedidos guardados.',phone='Introduza um telefone válido com indicativo do país.',progress='Passo',unknown='Escolha uma opção do menu. A sua mensagem não é automaticamente encaminhada ao coordenador.')
 })
+
+from privacy.onboarding import LANGUAGES
+TEXT = {lang: TEXT[lang] for lang in LANGUAGES}
+
+RIGHTS = {
+ 'uk': ('Запит зареєстровано. Адміністратор перевірить його застосовність і повідомить результат. Номер: ', 'Для виправлення: /correct поле значення. Поля: name, city, phone, profession.', 'Оберіть мову', 'Необов’язкові згоди не ввімкнені. Ознайомлення не є згодою.'),
+ 'pl': ('Żądanie zarejestrowano. Administrator sprawdzi jego zastosowanie i przekaże wynik. Numer: ', 'Sprostowanie: /correct pole wartość. Pola: name, city, phone, profession.', 'Wybierz język', 'Opcjonalne zgody są wyłączone. Zapoznanie się z informacją nie jest zgodą.'),
+ 'ru': ('Запрос зарегистрирован. Администратор проверит его применимость и сообщит результат. Номер: ', 'Исправление: /correct поле значение. Поля: name, city, phone, profession.', 'Выберите язык', 'Необязательные согласия выключены. Ознакомление не является согласием.'),
+ 'en': ('Request registered. The controller will check applicability and report the outcome. Reference: ', 'Correction: /correct field value. Fields: name, city, phone, profession.', 'Choose your language', 'Optional consents are disabled. Acknowledgement is not consent.'),
+ 'de': ('Antrag registriert. Der Verantwortliche prüft die Anwendbarkeit und teilt das Ergebnis mit. Nummer: ', 'Berichtigung: /correct Feld Wert. Felder: name, city, phone, profession.', 'Sprache wählen', 'Optionale Einwilligungen sind deaktiviert. Kenntnisnahme ist keine Einwilligung.'),
+ 'es': ('Solicitud registrada. El responsable comprobará su aplicabilidad y comunicará el resultado. Referencia: ', 'Rectificación: /correct campo valor. Campos: name, city, phone, profession.', 'Elija su idioma', 'Los consentimientos opcionales están desactivados. La lectura no es consentimiento.'),
+ 'pt': ('Pedido registado. O responsável verificará a aplicabilidade e comunicará o resultado. Referência: ', 'Retificação: /correct campo valor. Campos: name, city, phone, profession.', 'Escolha o idioma', 'Os consentimentos opcionais estão desativados. A leitura não é consentimento.'),
+}

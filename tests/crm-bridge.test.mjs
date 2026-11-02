@@ -6,29 +6,33 @@ import crypto from 'node:crypto';
 
 const secret='synthetic-test-secret-'.repeat(3),sheetId='syntheticSheetId1234567890';
 const mac=s=>crypto.createHmac('sha256',secret).update(s).digest('hex');
-function context(){
+export function context(){
  const sheets=new Map();let writeCount=0;
  class Sheet{
   constructor(){this.rows=[];}
   getLastRow(){return this.rows.length;}
   getMaxRows(){return 1000;}
   setFrozenRows(){return this;} setHiddenGridlines(){return this;} setColumnWidths(){return this;} setRowHeight(){return this;}
+  hideSheet(){return this;} getFilter(){return null;}
+  protect(){return {setDescription(){return this;},removeEditors(){return this;},getEditors(){return [];},canDomainEdit(){return false;},setUnprotectedRanges(){return this;}};}
   appendRow(row){this.rows.push(row);writeCount++;}
   getRange(r,c,h,w){const self=this;return {
    getValues(){return Array.from({length:h},(_,i)=>Array.from({length:w},(_,j)=>self.rows[r-1+i]?.[c-1+j]??''));},
    setValues(values){for(let i=0;i<h;i++){self.rows[r-1+i]??=[];for(let j=0;j<w;j++)self.rows[r-1+i][c-1+j]=values[i][j];}writeCount++;return this;},
-   setBackground(){return this;},setFontWeight(){return this;},setWrap(){return this;},createFilter(){return this;}
+   setBackground(){return this;},setFontWeight(){return this;},setWrap(){return this;},createFilter(){return this;},setDataValidation(){return this;}
   };}
  }
  const book={getSheetByName:n=>sheets.get(n),insertSheet:n=>{const s=new Sheet();sheets.set(n,s);return s;}};
  const ctx=vm.createContext({Date,JSON,Math,Number,String,Error,Object,Array,
-  PropertiesService:{getScriptProperties:()=>({getProperty:k=>({EWU_SHARED_SECRET:secret,SHEET_ID:sheetId}[k])})},
+  PropertiesService:{getScriptProperties:()=>({getProperty:k=>({EWU_SHARED_SECRET:secret,SHEET_ID:sheetId,OPERATIONAL_REVIEWED:'1',BIDIRECTIONAL_REVIEWED:'1'}[k])})},
   Utilities:{Charset:{UTF_8:'UTF-8'},DigestAlgorithm:{SHA_256:'sha256'},computeHmacSha256Signature:(s,k)=>[...crypto.createHmac('sha256',k).update(s).digest()],computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()]},
-  SpreadsheetApp:{openById:id=>{assert.equal(id,sheetId);return book;},flush(){}},
+  SpreadsheetApp:{openById:id=>{assert.equal(id,sheetId);return book;},flush(){},newDataValidation:()=>({requireValueInList(){return this;},setAllowInvalid(){return this;},build(){return {};}})},
   LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},
   ContentService:{MimeType:{JSON:'json'},createTextOutput:text=>({setMimeType:()=>text})},
  });
  vm.runInContext(fs.readFileSync(new URL('../crm/Code.gs',import.meta.url),'utf8'),ctx);
+ vm.runInContext(fs.readFileSync(new URL('../crm/commands.gs',import.meta.url),'utf8'),ctx);
+ vm.runInContext(fs.readFileSync(new URL('../crm/operational.gs',import.meta.url),'utf8'),ctx);
  ctx.setupEWUSheets();
  const payload={event_id:'11111111-1111-4111-8111-111111111111',application_id:'22222222-2222-4222-8222-222222222222',revision:1,kind:'candidate',status:'NEW',name:'=IMPORTXML("https://example.invalid")',phone:'+48123456789',city:'TEST CITY',profession:'TEST WORK',created_at:'2026-11-02',policy_revision:'test-policy',future_recruitment_consent:false};
  function post(p=payload,overrides={}){

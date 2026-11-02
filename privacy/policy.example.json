@@ -16,7 +16,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "categories": "",
+      "sources": ""
     },
     "pl": {
       "controller": "",
@@ -30,7 +32,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "categories": "",
+      "sources": ""
     },
     "ru": {
       "controller": "",
@@ -44,21 +48,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
-    },
-    "uz": {
-      "controller": "",
-      "contact": "",
-      "purposes": "",
-      "legal_basis": "",
-      "retention": "",
-      "recipients": "",
-      "transfers": "",
-      "rights": "",
-      "complaint": "",
-      "provision": "",
-      "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "categories": "",
+      "sources": ""
     },
     "en": {
       "controller": "",
@@ -72,7 +64,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "categories": "",
+      "sources": ""
     },
     "de": {
       "controller": "",
@@ -86,7 +80,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "categories": "",
+      "sources": ""
     },
     "es": {
       "controller": "",
@@ -100,7 +96,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "categories": "",
+      "sources": ""
     },
     "pt": {
       "controller": "",
@@ -114,7 +112,9 @@
       "complaint": "",
       "provision": "",
       "automated": "",
-      "policy_url": ""
+      "policy_url": "",
+      "categories": "",
+      "sources": ""
     }
   }
 }
