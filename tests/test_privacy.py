@@ -189,6 +189,32 @@ class PrivacyTests(unittest.TestCase):
         s.purge()
         self.assertEqual(s.db.execute('SELECT count(*) FROM applications').fetchone()[0],0)
         self.assertIsNone(s.intake(42))
+    def test_future_recruitment_requires_separate_opt_in_and_expires(self):
+        now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        p = fixture()
+        p['audit_retention_days'] = 730
+        s = Store(self.db, p, clock=lambda: now)
+        self.addCleanup(s.close)
+        s.record(42, 'acknowledged', 'uk')
+        self.assertFalse(s.future_recruitment_allowed(42))
+        with self.assertRaises(ValueError):
+            s.set_future_recruitment_consent(43, True)
+        s.set_future_recruitment_consent(42, True)
+        self.assertTrue(s.future_recruitment_allowed(42))
+        now += timedelta(days=366)
+        self.assertFalse(s.future_recruitment_allowed(42))
+
+    def test_future_recruitment_withdrawal_is_independent(self):
+        s = self.store()
+        s.record(42, 'acknowledged', 'uk')
+        s.set_future_recruitment_consent(42, True)
+        s.set_future_recruitment_consent(42, False)
+        self.assertFalse(s.future_recruitment_allowed(42))
+        self.assertTrue(s.allowed(42))
+        s.set_future_recruitment_consent(42, True)
+        s.record(42, 'withdrawn', 'uk')
+        self.assertFalse(s.future_recruitment_allowed(42))
+
     def test_url_and_retention_validation(self):
         for mutate in [lambda p:p.update(core_legal_basis='consent'),
                        lambda p:p.update(audit_retention_days=0),
