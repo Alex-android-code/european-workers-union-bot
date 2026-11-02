@@ -60,7 +60,7 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
         kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
         for key in ('candidate','employer','legal','about','contact'):
             kb.add(telebot.types.KeyboardButton(words[key]))
-        bot.send_message(chat_id, words['menu'] + ' — choose an option. /privacy /my_data /withdraw /delete_data', reply_markup=kb)
+        bot.send_message(chat_id, words['menu'] + '\n/privacy /my_data /withdraw /delete_data', reply_markup=kb)
 
     @bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'document', 'contact', 'voice', 'video', 'audio', 'location', 'sticker'])
     def handle(message):
@@ -78,7 +78,7 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
         store = state['store']
         journey = state['journey']
         user_id = message.from_user.id
-        lang = message.from_user.language_code or 'uk'
+        lang = (message.from_user.language_code or 'uk').lower().split('-')[0].split('_')[0]
         lang = lang if lang in UI else 'uk'
         selected = store.db.execute('SELECT locale FROM privacy_events WHERE user_id=? ORDER BY id DESC LIMIT 1',(user_id,)).fetchone()
         if selected and selected[0] in TEXT: lang=selected[0]
@@ -137,7 +137,7 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
             bot.send_message(message.chat.id, words['progress']+' 1/'+str(len(FLOWS[selection]))+': '+words[selection+'_q'][0])
             return
         if selection in ('about', 'contact'):
-            bot.send_message(message.chat.id, 'European Workers Union. Contact: ' + current['notices'][lang]['contact'])
+            bot.send_message(message.chat.id, 'European Workers Union. ' + UI[lang]['contact'] + ': ' + current['notices'][lang]['contact'])
             return
         intake = store.intake(user_id)
         if intake and text:
@@ -156,7 +156,7 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
             else:
                 bot.send_message(message.chat.id, words['progress']+' '+str(len(answers)+2)+'/'+str(len(steps))+': '+words[kind+'_q'][len(answers)+1])
         else:
-            bot.send_message(message.chat.id, words['unknown']+' No application has been saved or forwarded.')
+            bot.send_message(message.chat.id, words['unknown'])
 
     @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith('p:'))
     def callback(call):

@@ -9,9 +9,9 @@
 
 ## Implemented behavior
 
-Both `/start` and `/privacy` send four complete notices (Ukrainian, Polish, Russian, Uzbek), each with Continue/Decline. Every notice contains a full-document HTTPS link, controller, contact, purposes, legal bases, retention, recipients/transfers, rights, supervisory complaint route, provision consequences and automated-decision information. No legal facts are invented. A missing or incomplete policy blocks questionnaire access; incoming message contents are neither persisted nor forwarded by the gate. Telegram necessarily delivers the sender ID/message to the bot; this is not collection-free transport.
+Both `/start` and `/privacy` send eight complete notices (Ukrainian, Polish, Russian, English, German, Spanish, Portuguese, Uzbek), each with Continue/Decline. Every notice contains a full-document HTTPS link, controller, contact, purposes, legal bases, retention, recipients/transfers, rights, supervisory complaint route, provision consequences and automated-decision information. No legal facts are invented. A missing or incomplete policy blocks questionnaire access; incoming message contents are neither persisted nor forwarded by the gate. Telegram necessarily delivers the sender ID/message to the bot; this is not collection-free transport.
 
-Continue records `acknowledged`, NOT consent. Decline records `declined`. Records contain user ID, UTC timestamp, text version, content revision, locale and exact displayed notice. All four configured notices contribute to the revision, so content changes require fresh acknowledgement even if the version was not bumped. IDs and notice events are personal data too: disclose their purpose, legal basis and retention in the policy.
+Continue records `acknowledged`, NOT consent. Decline records `declined`. Records contain user ID, UTC timestamp, text version, content revision, locale and exact displayed notice. All eight configured notices contribute to the revision, so content changes require fresh acknowledgement even if the version was not bumped. IDs and notice events are personal data too: disclose their purpose, legal basis and retention in the policy.
 
 `/withdraw` records withdrawal and blocks further intake. There are **no active consent-based optional features** in this change: AI/profiling, GreenWork sync, group/admin forwarding and raw message transcripts are disabled/removed. No blanket consent or invented legal basis is used. Do not re-enable those features by treating acknowledgement as consent. Any future consent feature needs a distinct purpose, reviewed text, freely given opt-in, refusal path, version/time/user/action ledger and an effective withdrawal mechanism before processing.
 
@@ -21,7 +21,7 @@ Python stores minimal, explicitly selected intake forms in the same private SQLi
 
 ## Required configuration (no secrets in repository)
 
-Copy `privacy/policy.example.json` to a private deployment configuration location and fill **all** four language notices. Set `PRIVACY_CONFIG_FILE` to its absolute path; configure the same file for either runtime. The example deliberately fails validation until completed. Deployment must mount/provision the file; Docker does not embed legal configuration.
+Copy `privacy/policy.example.json` to a private deployment configuration location and fill **all** eight language notices. Set `PRIVACY_CONFIG_FILE` to its absolute path; configure the same file for either runtime. The example deliberately fails validation until completed. Deployment must mount/provision the file; Docker does not embed legal configuration.
 
 - `version`: approved text version; change it whenever policy changes.
 - `core_legal_basis`: lawyer-approved `art6_1_b`, `art6_1_c` or `art6_1_f`. These are permitted choices, not a legal determination that any applies. Consent-based core processing is not supported by this flow. The translated `legal_basis` and `purposes` fields must accurately describe each activity, including onboarding evidence and rights handling. If no appropriate basis applies, do not launch intake.
@@ -37,7 +37,7 @@ Python audit/application/session expiry runs on rights/state actions; Node audit
 
 Application logs use fixed event identifiers, not exception bodies or user text. Python Telegram SDK logging is disabled during runtime to avoid token-bearing URLs. Review infrastructure/HTTP/DB logs and access controls separately; this code cannot sanitize external logging systems. No uploaded media is downloaded. Configure rate limiting/abuse protection and processor agreements before production use.
 
-Legal approval is still required for controller details, purposes and bases for each activity, special-category restrictions, retention, rights/request SLA and response channel, Telegram/hosting subprocessors and international transfers, translations (especially Uzbek), automated decision/profiling implications, historical data remediation, and backup/processor deletion. A four-language notice alone is not certification of GDPR compliance.
+Legal approval is still required for controller details, purposes and bases for each activity, special-category restrictions, retention, rights/request SLA and response channel, Telegram/hosting subprocessors and international transfers, translations (especially Uzbek), automated decision/profiling implications, historical data remediation, and backup/processor deletion. An eight-language notice alone is not certification of GDPR compliance.
 
 ## Validation and rollout
 

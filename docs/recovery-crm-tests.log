@@ -1,8 +1,8 @@
-✔ signed request upserts one candidate, history and receipt; retry is idempotent (4.706509ms)
-✔ invalid signatures or stale timestamps never write candidate data (1.303712ms)
-✔ same event with changed data and same revision with a new event are rejected (1.457906ms)
-✔ higher version updates while delayed older version cannot overwrite it (2.135941ms)
-✔ unknown fields, automatic future consent, invalid state and changed schema are refused (1.004759ms)
+✔ signed request upserts one candidate, history and receipt; retry is idempotent (6.402505ms)
+✔ invalid signatures or stale timestamps never write candidate data (1.524677ms)
+✔ same event with changed data and same revision with a new event are rejected (1.594672ms)
+✔ higher version updates while delayed older version cannot overwrite it (3.104025ms)
+✔ unknown fields, automatic future consent, invalid state and changed schema are refused (2.336534ms)
 ℹ tests 5
 ℹ suites 0
 ℹ pass 5
@@ -10,4 +10,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 138.240572
+ℹ duration_ms 119.843924

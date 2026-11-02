@@ -18,7 +18,7 @@ let offset = 0;
 
 const LANGS = {
   '🇺🇦 Українська':'uk','🇵🇱 Polski':'pl','🇷🇺 Русский':'ru',
-  '🇬🇧 English':'en','🇩🇪 Deutsch':'de','🇪🇸 Español':'es','🇵🇹 Português':'pt'
+  '🇬🇧 English':'en','🇩🇪 Deutsch':'de','🇪🇸 Español':'es','🇵🇹 Português':'pt','🇺🇿 O‘zbekcha':'uz'
 };
 const L = {
 uk:{candidate:'👷 Шукаю роботу',employer:'🏢 Шукаю працівників',legal:'📄 Легалізація і документи',about:'ℹ️ Про EWU',contact:'📞 Зв’язатися з координатором',menu:'Головне меню',welcome:'Вітаю! Я European Workers Union (EWU). Оберіть напрямок:',aboutText:'European Workers Union — платформа, що з’єднує працівників і роботодавців у Польщі та Європі.',contactAsk:'Напишіть ваше питання або ситуацію. Координатор побачить звернення.',saved:'Готово. Дані збережено, координатор EWU зможе продовжити роботу із заявкою.',error:'Технічна помилка. Натисніть /start і спробуйте ще раз.'},
@@ -75,6 +75,12 @@ for (const [kind, indexes] of Object.entries({candidate:[0,1,2,4],employer:[0,1,
  f.fields=indexes.map(i=>f.fields[i]);
  for(const lang of Object.keys(f.q)) f.q[lang]=indexes.map(i=>f.q[lang][i]);
 }
+
+// Preserve all original languages; retain Uzbek added during recovery.
+L.uz={"menu": "EWU — amalni tanlang", "candidate": "👷 Ish qidiryapman", "employer": "🏢 Ishchilar qidiryapman", "legal": "📄 Qonuniylashtirish va hujjatlar", "about": "ℹ️ EWU haqida", "contact": "📞 Koordinator", "saved": "Ariza saqlandi. Bu ishga qabul tasdig‘i emas. /status — holat; /arrival — kelishilgan kelish rejasi.", "no_plan": "Hozircha tasdiqlangan kelish rejasi yo‘q. Koordinator tasdig‘isiz yo‘lga chiqmang.", "no_apps": "Saqlangan arizalar yo‘q.", "phone": "Davlat kodi bilan to‘g‘ri telefon raqamini yozing.", "progress": "Bosqich", "unknown": "Menyudan amal tanlang. Xabar koordinatorga avtomatik yuborilmaydi.", "welcome": "European Workers Union (EWU). Amalni tanlang:", "aboutText": "European Workers Union Polsha va Yevropada ishchilar va ish beruvchilarni bog‘laydi.", "contactAsk": "Savolingizni yoki vaziyatingizni yozing.", "error": "Texnik xato. /start orqali qayta urinib ko‘ring."};
+flows.candidate.q.uz=["Ismingiz?", "Davlat kodi bilan aloqa telefoningiz?", "Hozir qaysi shahardasiz?", "Qanday ish qidiryapsiz?"];
+flows.employer.q.uz=["Kompaniya nomi?", "Aloqa uchun mas’ul shaxs?", "Davlat kodi bilan telefon raqami?", "Ish mamlakati, shahri yoki hududi?", "Qanday ishchilar kerak?", "Nechta ishchi kerak?", "Vazifalar, jadval, turar joy va talablarni qisqacha yozing. Boshqa shaxslarning ma’lumotlarini yozmang."];
+flows.legal.q.uz=["Umumiy savolni qisqacha yozing. Hujjat, PESEL yoki tibbiy ma’lumot yubormang.", "Savol qaysi mamlakatga tegishli?", "Davlat kodi bilan aloqa telefoningiz?"];
 const privacyStore = new PgStore(pool);
 const privacyGate = createGate({store:privacyStore,tg,onContinue:start});
 

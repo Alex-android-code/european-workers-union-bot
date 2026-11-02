@@ -45,7 +45,7 @@ def render(policy, lang):
     ui, notice = UI[lang], policy['notices'][lang]
     lines = [ui['title'] + ' — ' + policy['version']]
     lines += [ui[field] + ': ' + notice[field] for field in FIELDS]
-    return '\n\n'.join(lines + ['Polityka prywatności: ' + notice['policy_url'], ui['note']])
+    return '\n\n'.join(lines + [ui['policy'] + ': ' + notice['policy_url'], ui['note']])
 
 
 class Store:

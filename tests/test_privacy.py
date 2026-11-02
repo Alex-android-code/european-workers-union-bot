@@ -57,12 +57,12 @@ class PrivacyTests(unittest.TestCase):
         s=Store(self.db, self.p)
         self.addCleanup(s.close)
         return s
-    def test_start_displays_four_notices_without_record_or_questionnaire(self):
+    def test_start_displays_all_supported_notices_without_record_or_questionnaire(self):
         self.fake.handle(self.msg('/start'))
-        self.assertEqual(len(self.fake.sent), 4)
+        self.assertEqual(len(self.fake.sent), len(UI))
         for lang, (_, text, options) in zip(UI, self.fake.sent):
             self.assertIn(UI[lang]['title'], text)
-            self.assertIn('Polityka prywatności:', text)
+            self.assertIn(UI[lang]['policy'] + ':', text)
             self.assertIn(UI[lang]['note'], text)
             self.assertNotIn('Please send your name', text)
             self.assertIn('inline_keyboard', options['reply_markup'].to_dict())
@@ -75,7 +75,7 @@ class PrivacyTests(unittest.TestCase):
         row=s.db.execute('SELECT user_id,action,version,notice,at FROM privacy_events').fetchone()
         self.assertEqual(row[:4], (42,'acknowledged','test-v1',render(self.p,'uz')))
         self.assertTrue(datetime.fromisoformat(row[4]).tzinfo)
-        self.assertIn('choose an option', self.fake.sent[-1][1])
+        self.assertIn('EWU — amalni tanlang', self.fake.sent[-1][1])
     def test_pre_onboarding_text_never_saved_or_forwarded(self):
         self.fake.handle(self.msg('PRIVATE PASSPORT 12345'))
         s=self.store()
@@ -134,7 +134,7 @@ class PrivacyTests(unittest.TestCase):
         self.fake.handle(self.msg('SECRET QUESTIONNAIRE TEXT'))
         s=self.store()
         self.assertNotIn('SECRET QUESTIONNAIRE',repr(s.db.execute('SELECT * FROM privacy_events').fetchall()))
-        self.assertIn('No application has been saved',self.fake.sent[-1][1])
+        self.assertIn('Повідомлення не пересилається',self.fake.sent[-1][1])
     def test_media_and_foreign_callback_cannot_open_intake(self):
         self.fake.handle(self.msg(None))
         self.assertFalse(self.store().allowed(42))
@@ -151,7 +151,7 @@ class PrivacyTests(unittest.TestCase):
         self.path.unlink()
         self.fake.sent.clear()
         self.fake.handle(self.msg('/start'))
-        self.assertEqual(len(self.fake.sent),4)
+        self.assertEqual(len(self.fake.sent),len(UI))
         self.assertNotIn('callback_data',repr(self.fake.sent))
     def test_selected_intake_is_saved_only_after_acknowledgement(self):
         self.fake.handle(self.msg('👷 I’m looking for work'))

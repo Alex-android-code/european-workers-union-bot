@@ -3,22 +3,24 @@ npm warn Unknown env config "http-proxy". This will stop working in the next maj
 > european-workers-union-bot@1.0.0 test
 > node tests/privacy.test.js && node tests/privacy-pg.test.js
 
-✔ four notices, no intake before acknowledgement; positive flow (3.696961ms)
-✔ decline, withdrawal, deletion and user isolation (2.260128ms)
-✔ policy text change, stale buttons, malformed callbacks (2.240359ms)
-✔ missing legal data and group updates fail closed (0.493035ms)
-✔ URL, retention and notice size validated (0.53585ms)
-✔ PgStore writes snapshot and request transactionally with parameters (1.251443ms)
-✔ PgStore rolls back and never logs DB errors (0.580678ms)
-ℹ tests 7
+✔ all supported notices, no intake before acknowledgement; positive flow (5.585177ms)
+✔ decline, withdrawal, deletion and user isolation (4.662799ms)
+✔ policy text change, stale buttons, malformed callbacks (4.794112ms)
+✔ missing legal data and group updates fail closed (0.517032ms)
+✔ URL, retention and notice size validated (0.658516ms)
+✔ PgStore writes snapshot and request transactionally with parameters (1.442101ms)
+✔ PgStore rolls back and never logs DB errors (0.605185ms)
+✔ all restored languages accept a reviewed notice and record its exact translation (9.981747ms)
+✔ Node menus and every intake preserve the original seven languages plus Uzbek (3.217246ms)
+ℹ tests 9
 ℹ suites 0
-ℹ pass 7
+ℹ pass 9
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 17.564896
-✔ PostgreSQL schema, privacy events, retention and durable deletion gate (1502.087478ms)
+ℹ duration_ms 40.028392
+✔ PostgreSQL schema, privacy events, retention and durable deletion gate (1277.487318ms)
 ℹ tests 1
 ℹ suites 0
 ℹ pass 1
@@ -26,4 +28,4 @@ npm warn Unknown env config "http-proxy". This will stop working in the next maj
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 1510.463917
+ℹ duration_ms 1285.708302

@@ -6,7 +6,7 @@ const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Obje
 export const revision=p=>crypto.createHash('sha256').update(JSON.stringify(canonical(p))).digest('hex').slice(0,24);
 export function render(p,lang) {
  const ui=UI[lang],n=p.notices[lang];
- return [ui.title+' — '+p.version,...fields.map(k=>ui[k]+': '+n[k]),'Polityka prywatności: '+n.policy_url,ui.note].join('\n\n');
+ return [ui.title+' — '+p.version,...fields.map(k=>ui[k]+': '+n[k]),ui.policy+': '+n.policy_url,ui.note].join('\n\n');
 }
 export function validate(p) {
  if(typeof p.version!=='string'||!p.version.trim()) throw Error('Missing version');
@@ -33,6 +33,10 @@ export class PgStore {
   await this.pool.query("DELETE FROM ewu_privacy_events WHERE at < now() - ($1::int * interval '1 day')",[p.audit_retention_days]);
   for(const [table,time] of [['ewu_applications','created_at'],['ewu_sessions','updated_at'],['ewu_messages','created_at']])
    await this.pool.query(`DELETE FROM ${table} WHERE ${time} < now() - ($1::int * interval '1 day')`,[p.application_retention_days]);
+ }
+ async locale(id){
+  const r=await this.pool.query('SELECT locale FROM ewu_privacy_events WHERE user_id=$1 ORDER BY id DESC LIMIT 1',[id]);
+  return r.rows[0]?.locale;
  }
  async allowed(id,p){
   const r=await this.pool.query('SELECT action,revision FROM ewu_privacy_events WHERE user_id=$1 ORDER BY id DESC LIMIT 1',[id]);
@@ -63,7 +67,10 @@ export function createGate({store,tg,getPolicy=loadPolicy,onContinue}){
   if(msg.chat?.type!=='private'||!msg.from?.id||msg.from.is_bot) return true;
   let p;try{p=getPolicy();}catch{await notice(msg.chat.id,null);return true;}
   await store.purge(p);
-  const id=msg.from.id,lang=Object.hasOwn(UI,msg.from.language_code)?msg.from.language_code:'uk';
+  const id=msg.from.id;
+  const device=String(msg.from.language_code||'uk').toLowerCase().split(/[-_]/)[0];
+  const selected=await store.locale(id);
+  const lang=Object.hasOwn(UI,selected)?selected:Object.hasOwn(UI,device)?device:'uk';
   const command=String(msg.text||'').trim().split(/\s/)[0].split('@')[0];
   if(callback){
    if(callback.from.id!==msg.chat.id) return true;

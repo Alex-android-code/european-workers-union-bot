@@ -37,7 +37,7 @@ test('PostgreSQL schema, privacy events, retention and durable deletion gate',as
   let continued=0;const messages=[];
   const gate=createGate({store,tg:async(_,body)=>messages.push(body),getPolicy:()=>p,onContinue:async()=>continued++});
   assert.equal(await gate({from:{id:44},chat:{id:44,type:'private'},text:'PRIVATE TEXT'}),true);
-  assert.equal(continued,0);assert.equal(messages.length,4);
+  assert.equal(continued,0);assert.equal(messages.length,Object.keys(UI).length);
   assert.equal((await query('SELECT * FROM ewu_applications')).rows.length,0);
  }finally{await db.close();}
 });

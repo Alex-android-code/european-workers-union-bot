@@ -7,6 +7,9 @@ test_public_queue_is_valid (test_ewu_channel_publisher.PublisherTests.test_publi
 test_publish_date_is_honored (test_ewu_channel_publisher.PublisherTests.test_publish_date_is_honored) ... ok
 test_published_is_not_repeated (test_ewu_channel_publisher.PublisherTests.test_published_is_not_repeated) ... ok
 test_unapproved_is_not_selected (test_ewu_channel_publisher.PublisherTests.test_unapproved_is_not_selected) ... ok
+test_each_language_each_intake_keeps_selected_locale (test_languages.LanguageTests.test_each_language_each_intake_keeps_selected_locale) ... ok
+test_missing_restored_translation_blocks_onboarding (test_languages.LanguageTests.test_missing_restored_translation_blocks_onboarding) ... ok
+test_original_seven_and_recovery_language_are_complete (test_languages.LanguageTests.test_original_seven_and_recovery_language_are_complete) ... ok
 test_acknowledgement_enables_menu_and_records_exact_text (test_privacy.PrivacyTests.test_acknowledgement_enables_menu_and_records_exact_text) ... ok
 test_application_and_partial_form_retention (test_privacy.PrivacyTests.test_application_and_partial_form_retention) ... ok
 test_decline_blocks_and_isolated_from_other_users (test_privacy.PrivacyTests.test_decline_blocks_and_isolated_from_other_users) ... ok
@@ -19,7 +22,7 @@ test_old_version_and_missing_policy_file_fail_closed (test_privacy.PrivacyTests.
 ok
 test_pre_onboarding_text_never_saved_or_forwarded (test_privacy.PrivacyTests.test_pre_onboarding_text_never_saved_or_forwarded) ... ok
 test_selected_intake_is_saved_only_after_acknowledgement (test_privacy.PrivacyTests.test_selected_intake_is_saved_only_after_acknowledgement) ... ok
-test_start_displays_four_notices_without_record_or_questionnaire (test_privacy.PrivacyTests.test_start_displays_four_notices_without_record_or_questionnaire) ... ok
+test_start_displays_all_supported_notices_without_record_or_questionnaire (test_privacy.PrivacyTests.test_start_displays_all_supported_notices_without_record_or_questionnaire) ... ok
 test_url_and_retention_validation (test_privacy.PrivacyTests.test_url_and_retention_validation) ... ok
 test_version_and_content_changes_invalidate_and_old_buttons_fail (test_privacy.PrivacyTests.test_version_and_content_changes_invalidate_and_old_buttons_fail) ... ok
 test_withdraw_and_deletion_request_block_reentry (test_privacy.PrivacyTests.test_withdraw_and_deletion_request_block_reentry) ... ok
@@ -43,6 +46,6 @@ test_unsigned_success_not_accepted_and_redirects_restricted (test_recovery.Recov
 test_withdraw_and_policy_change_prevent_sync_and_status_change (test_recovery.RecoveryTests.test_withdraw_and_policy_change_prevent_sync_and_status_change) ... ok
 
 ----------------------------------------------------------------------
-Ran 39 tests in 0.656s
+Ran 42 tests in 1.292s
 
 OK
