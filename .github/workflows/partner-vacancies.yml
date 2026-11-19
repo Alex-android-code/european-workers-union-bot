@@ -1,0 +1,20 @@
+name: EWU partner vacancy tests
+on:
+  pull_request:
+    paths:
+      - 'bot.js'
+      - 'partner-vacancies.js'
+      - 'test/**'
+      - 'Dockerfile'
+      - '.github/workflows/partner-vacancies.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: node --check bot.js
+      - run: node --test test/partner-vacancies.test.js
