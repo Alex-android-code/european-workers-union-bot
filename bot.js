@@ -227,7 +227,8 @@ async function handle(msg){
   const vacancies=await approvedVacancies(pool,10);
   if(!vacancies.length) return send(msg.chat.id,'EWU: наразі немає підтверджених вакансій для публікації. /start');
   const lines=['🏢 EWU — підтверджені вакансії'];
-  for(const v of vacancies) lines.push('• '+v.project+' — '+v.city+'\\n'+(v.pay_raw||'Оплата уточнюється'));
+  const safe = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  for(const v of vacancies) lines.push('• '+safe(v.project)+' — '+safe(v.city)+'\n'+safe(v.pay_raw||'Оплата уточнюється'));
   return send(msg.chat.id,lines.join('\\n\\n').slice(0,3900));
  }
  let s=await session(msg.from.id);
