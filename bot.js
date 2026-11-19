@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import http from 'node:http';
 import pg from 'pg';
+import { initVacancies, approvedVacancies } from './partner-vacancies.js';
 import { generateText } from 'ai';
 
 const { Pool } = pg;
@@ -79,6 +80,7 @@ async function init(){
   "CREATE TABLE IF NOT EXISTS ewu_settings(key text primary key,value text not null,updated_at timestamptz default now())"
  ];
  for(const s of ddl) await pool.query(s);
+ await initVacancies(pool);
 }
 
 async function tg(method, body={}){
@@ -221,6 +223,13 @@ async function handle(msg){
 
  await saveMsg(msg.from.id,'in',text);
  if(text==='/start'||text==='/reset') return start(msg);
+ if(text==='/jobs'){
+  const vacancies=await approvedVacancies(pool,10);
+  if(!vacancies.length) return send(msg.chat.id,'EWU: наразі немає підтверджених вакансій для публікації. /start');
+  const lines=['🏢 EWU — підтверджені вакансії'];
+  for(const v of vacancies) lines.push('• '+v.project+' — '+v.city+'\\n'+(v.pay_raw||'Оплата уточнюється'));
+  return send(msg.chat.id,lines.join('\\n\\n').slice(0,3900));
+ }
  let s=await session(msg.from.id);
  if(!s) return start(msg);
  if(s.mode==='language'){
@@ -254,6 +263,7 @@ async function setup(){
  try{await tg('setMyCommands',{commands:[
  {command:'start',description:'Start / choose language'},
  {command:'reset',description:'Reset dialogue'},
+ {command:'jobs',description:'Verified EWU vacancies'},
  {command:'bindgroup',description:'Bind this group for EWU applications'},
  {command:'unbindgroup',description:'Unbind recruitment group'}
 ]})}catch{}
