@@ -229,7 +229,7 @@ async function handle(msg){
   const lines=['🏢 EWU — підтверджені вакансії'];
   const safe = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
   for(const v of vacancies) lines.push('• '+safe(v.project)+' — '+safe(v.city)+'\n'+safe(v.pay_raw||'Оплата уточнюється'));
-  return send(msg.chat.id,lines.join('\\n\\n').slice(0,3900));
+  return send(msg.chat.id,lines.join('\n\n').slice(0,3900));
  }
  let s=await session(msg.from.id);
  if(!s) return start(msg);
