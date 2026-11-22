@@ -3,5 +3,6 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 COPY bot.js ./
+COPY mosthr-bridge.js ./
 ENV NODE_ENV=production
 CMD ["node","bot.js"]
