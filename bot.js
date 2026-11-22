@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 import pg from 'pg';
 import { generateText } from 'ai';
+import { createMosthrBridge, createMosthrClient, createPgBridgeStore } from './mosthr-bridge.js';
 
 const { Pool } = pg;
 const TOKEN = String(process.env.TELEGRAM_TOKEN || '');
@@ -14,6 +15,8 @@ const pool = new Pool({ connectionString: DB, max: 5 });
 const API = 'https://api.telegram.org/bot' + TOKEN + '/';
 const PORT = Number(process.env.PORT || 3000);
 let offset = 0;
+let mosthrBridge = null;
+let mosthrStore = null;
 
 const LANGS = {
   '🇺🇦 Українська':'uk','🇵🇱 Polski':'pl','🇷🇺 Русский':'ru',
@@ -219,6 +222,15 @@ async function handle(msg){
    return;
  }
 
+ // The MostHR flow has its own minimal storage and must never reach legacy AI/group sync.
+ if(!mosthrBridge){
+   const pending=mosthrStore ? await mosthrStore.get(msg.from.id) : null;
+   if(pending && ['/start','/reset','/cancel'].includes(text)) await mosthrStore.clear(msg.from.id);
+   else if(pending || /^\/start(?:@[a-zA-Z0-9_]+)? mhr_/.test(text)) {
+     return tg('sendMessage',{chat_id:msg.chat.id,text:'MostHR: integration unavailable. /start — EWU main menu. / Інтеграція недоступна. /start — головне меню EWU.'});
+   }
+ }
+ if(mosthrBridge && await mosthrBridge.handle(msg)) return;
  await saveMsg(msg.from.id,'in',text);
  if(text==='/start'||text==='/reset') return start(msg);
  let s=await session(msg.from.id);
@@ -248,12 +260,34 @@ async function handle(msg){
 
 async function setup(){
  await init();
+ // Preserve the privacy boundary for an unfinished form even when the feature is disabled.
+ try {
+   const existing=(await pool.query("SELECT to_regclass('public.ewu_mosthr_dialogues') AS name")).rows[0]?.name;
+   if(existing) mosthrStore=createPgBridgeStore(pool);
+ } catch(e) { console.error('MostHR state check failed',e.name); }
+ if(process.env.MOSTHR_ENABLED==='true'){
+  try {
+   const store=createPgBridgeStore(pool); await store.init(); mosthrStore=store;
+   const me=await tg('getMe');
+   mosthrBridge=createMosthrBridge({store,client:createMosthrClient({baseUrl:process.env.MOSTHR_URL,key:process.env.MOSTHR_BRIDGE_KEY}),
+     subjectSecret:process.env.MOSTHR_SUBJECT_SECRET,botUsername:me.username,
+     getLanguage:async id=>(await session(id))?.lang,
+     onEnter:(id,lang)=>setSession(id,L[lang] ? lang:'en','menu',0,{}),
+     send:(chat_id,text)=>tg('sendMessage',{chat_id,text,link_preview_options:{is_disabled:true}})});
+   setInterval(()=>mosthrBridge.tick().catch(e=>console.error('MostHR worker failed',e.name)),15_000).unref();
+  } catch(e) { mosthrBridge=null; console.error('MostHR disabled: configuration or initialization failed',e.name); }
+ }
+ if(mosthrStore && !mosthrBridge){
+   await mosthrStore.cleanup().catch(e=>console.error('MostHR cleanup failed',e.name));
+   setInterval(()=>mosthrStore.cleanup().catch(e=>console.error('MostHR cleanup failed',e.name)),3_600_000).unref();
+ }
  try{await tg('deleteWebhook',{drop_pending_updates:false})}catch{}
  try{await tg('setMyName',{name:'European Workers Union'})}catch{}
  try{await tg('setMyDescription',{description:'EWU — jobs, workers and legalization support across Poland and Europe.'})}catch{}
  try{await tg('setMyCommands',{commands:[
  {command:'start',description:'Start / choose language'},
  {command:'reset',description:'Reset dialogue'},
+ ...(mosthrBridge ? [{command:'jobs',description:'MostHR jobs / Вакансії'},{command:'status',description:'My applications / Мої заявки'},{command:'cancel',description:'Cancel MostHR application'}] : []),
  {command:'bindgroup',description:'Bind this group for EWU applications'},
  {command:'unbindgroup',description:'Unbind recruitment group'}
 ]})}catch{}
