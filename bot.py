@@ -60,11 +60,24 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
         kb = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
         for key in ('candidate','employer','legal','about','contact'):
             kb.add(telebot.types.KeyboardButton(words[key]))
-        bot.send_message(chat_id, words['menu'] + '\n/privacy /my_data /withdraw /delete_data', reply_markup=kb)
+        bot.send_message(chat_id, words['menu'] + '\n/vacancies — MaxHR\n/privacy /my_data /withdraw /delete_data', reply_markup=kb)
 
     @bot.message_handler(func=lambda m: True, content_types=['text', 'photo', 'document', 'contact', 'voice', 'video', 'audio', 'location', 'sticker'])
     def handle(message):
         if message.chat.type != 'private' or message.from_user.is_bot:
+            return
+        # Public vacancy browsing does not create an intake or store answers.
+        raw = (message.text or '').strip()
+        cmd = raw.split(maxsplit=1)[0].split('@')[0] if raw else ''
+        if cmd == '/vacancies':
+            from pathlib import Path
+            catalog = json.loads(Path(__file__).with_name('maxhr_catalog.json').read_text(encoding='utf-8'))
+            lines = ['MaxHR — вакансії / вакансии / jobs', 'Snapshot: ' + catalog['snapshot'] + ' | Availability must be confirmed.']
+            for job in catalog['vacancies']:
+                rate = job['net'] + ' PLN netto/h' if job['net'] else 'rate: confirm'
+                hours = job['hours'] + ' h/month' if job['hours'] else 'hours: confirm'
+                lines.append(f"{job['id']}. {job['name']} — {job['city']} | {rate} | {hours}")
+            bot.send_message(message.chat.id, '\\n'.join(lines).replace('\\\\n', '\\n') + '\\nНе надсилайте документи або контактні дані в цей чат. / Do not send documents or contact details here.')
             return
         current = policy()
         if current is None:
