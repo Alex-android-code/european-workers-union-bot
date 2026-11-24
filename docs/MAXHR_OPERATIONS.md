@@ -158,3 +158,35 @@ closed/paused jobs, unavailable/malformed sources, ID stability, filters,
 all languages/menu buttons, callback bounds, disabled intake, synthetic enabled
 intake, document answer limits, rights isolation, admin access, statuses,
 duplicates, commission non-stacking, optimistic concurrency and backup/restart.
+
+## Verified deployment result and access blocker
+
+Deployment `75b1982e-2aa7-43b9-8f31-efa273db9552`, code commit
+`d07bae5b94fd383f97367972a6a03cd70c960094`, was built by Railway. Runtime
+logs confirm live sync of 11 jobs and the production-image smoke check
+(8 languages, 152 responses, persisted catalogue integrity OK, intake disabled).
+The same volume retained all 11 jobs over container restarts.
+
+Telegram getMe fails with HTTP 401 Unauthorized using the existing TELEGRAM_TOKEN.
+No bot identity or live user conversation could be verified. The launch process
+exits and Railway retries according to its existing policy; a platform SUCCESS
+status alone is not evidence that the bot is online. The 15-minute background
+worker is implemented and source-sync tests pass, but a sustained production
+15-minute cycle cannot be verified while credential validation stops startup.
+The next required action is replacing TELEGRAM_TOKEN for this service in the
+Railway dashboard with a valid token for EWU_Jobs_Bot; do not paste it into chat
+or GitHub. Updating the variable normally redeploys the pinned source.
+
+The one-time pre-release manifest found zero SQLite files under /data. It does
+not establish whether old candidate history exists in a different backing store.
+No historical candidate files were deleted or migrated. Preservation of any
+pre-existing external history is not claimed as verified.
+
+Validation after the final code change: 63 Python tests and 16 Node tests passed.
+This includes the existing 42 Python regression tests; 9 Node privacy/menu tests,
+1 PostgreSQL/PGlite test and 6 signed CRM bridge integration tests. Syntax checks
+passed. All form tests used synthetic data. CRM and financial mutations require
+the reviewed privacy configuration; public-mode statistics, commission terms
+and draft-ad commands are implemented, but live admin access remains unverified
+until the Telegram credential works. There was no paid advertising, broadcasting,
+new Railway resource or change to ARIA, MostHR or GreenSet.

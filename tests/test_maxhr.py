@@ -137,6 +137,16 @@ class MaxHRTests(unittest.TestCase):
         with self.assertRaises(PermissionError):crm.balance(42,aid)
         self.assertIn('COMMISSION_PAID,1',crm.export(99))
         terms['base']='900/700 Zł';self.assertIsNone(crm.terms(99,aid,terms)['expected'])
+    def test_maxhr_crm_payload_keeps_minimal_name_and_vacancy(self):
+        store=self.reviewed();crm=MaxHRCrm(store,[99]);crm.submit(42,self.form(),'uk',enabled=True)
+        payload=crm.journey.crm_batch()[0]
+        self.assertEqual(payload['name'],'Test Person');self.assertEqual(payload['profession'],'synthetic')
+        self.assertNotIn('user_id',payload);self.assertNotIn('passport',payload)
+    def test_runtime_image_smoke_uses_no_real_personal_database(self):
+        from public_bot import runtime_smoke
+        result=runtime_smoke(self.path)
+        self.assertEqual(result['languages'],8);self.assertEqual(result['vacancies'],1)
+        self.assertEqual(result['persistence'],'ok');self.assertFalse(self.db.exists())
     def test_existing_data_rights_without_policy_keep_owner_isolation(self):
         store=self.reviewed();crm=MaxHRCrm(store,[99]);aid=crm.submit(42,self.form(),'uk',enabled=True)
         self.assertEqual(handle_right(self.db,43,'/my_data')['applications'],[])

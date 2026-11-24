@@ -65,3 +65,8 @@ test('unknown fields, automatic future consent, invalid state and changed schema
  assert.equal(x.post({...x.payload,status:'AUTO_HIRED'}).ok,false);
  x.sheets.get('EWU_Candidates').rows[0][0]='wrong';assert.equal(x.post().ok,false);
 });
+test('signed MaxHR kinds and every new workflow status are accepted without extra personal fields',()=>{
+ for(const status of ['NEW','SCREENING','SENT_MAXHR','AWAITING_EMPLOYMENT','EMPLOYED','HOURS_24','HOURS_100','COMMISSION_CONFIRMED','COMMISSION_PAID','REJECTED']){
+  const x=context();assert.equal(x.post({...x.payload,kind:'maxhr',status,name:'Test Person',profession:'synthetic-job'}).ok,true,status);
+ }
+});
