@@ -124,6 +124,9 @@ class Journey:
    self.db.execute('DELETE FROM candidate_journey WHERE application_id NOT IN (SELECT id FROM applications)')
    self.db.execute('DELETE FROM journey_events WHERE application_id NOT IN (SELECT id FROM applications)')
    self.db.execute('DELETE FROM crm_outbox WHERE application_id NOT IN (SELECT id FROM applications)')
+   for table in ('maxhr_finance','maxhr_finance_events'):
+    if self.db.execute("SELECT 1 FROM sqlite_master WHERE name=?",(table,)).fetchone():
+     self.db.execute('DELETE FROM '+table+' WHERE application_id NOT IN (SELECT id FROM applications)')
 
  def crm_batch(self,limit=10):
   if type(limit) is not int or not 1<=limit<=50:raise ValueError('Invalid batch size')
@@ -138,8 +141,8 @@ class Journey:
    data=json.loads(row['data'])
    # No Telegram ID, documents, AI score, message history, photos or raw form dump.
    payload=dict(event_id=event_id,application_id=aid,revision=number,kind=row['kind'],status=row['status'],
-    name=data.get('name',data.get('company','')),phone=data.get('phone',''),
-    city=data.get('city',data.get('location',data.get('country',''))),profession=data.get('profession',''),
+    name=data.get('name',data.get('company',(' '.join([data.get('first_name',''),data.get('last_name','')])).strip())),phone=data.get('phone',''),
+    city=data.get('city',data.get('location',data.get('country',''))),profession=data.get('profession',data.get('vacancy_id','')),
     created_at=row['at'],policy_revision=row['policy_revision'],future_recruitment_consent=False)
    result.append(payload)
   return result

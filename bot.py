@@ -195,16 +195,64 @@ def create_bot(token, policy_path, database_path, bot_client=None, admin_ids=())
 def run():
     if os.environ.get('EWU_START_ALLOWED') != '1' or os.environ.get('EWU_MAINTENANCE', '1') != '0':
         raise RuntimeError('EWU polling is locked')
-    load_policy(os.environ.get('PRIVACY_CONFIG_FILE',''),os.environ.get('PRIVACY_CONFIG_JSON'))
+    if os.environ.get('EWU_PUBLIC_CATALOG') != '1':
+        load_policy(os.environ.get('PRIVACY_CONFIG_FILE',''),os.environ.get('PRIVACY_CONFIG_JSON'))
     # SDK exception logs can include Telegram URLs containing the token.
     telebot.logger.disabled = True
-    bot = create_bot(os.environ['TELEGRAM_TOKEN'], os.environ.get('PRIVACY_CONFIG_FILE', ''),
-                     os.environ.get('PRIVACY_DB_PATH', '/data/ewu/privacy.sqlite3'),
-                     admin_ids=[x.strip() for x in os.environ.get('EWU_ADMIN_IDS','').split(',') if x.strip()])
+    admins=[x.strip() for x in os.environ.get('EWU_ADMIN_IDS',os.environ.get('ADMIN_CHAT_ID','')).split(',') if re.fullmatch(r'[1-9][0-9]{0,18}',x.strip())]
+    if os.environ.get('EWU_PUBLIC_CATALOG') == '1':
+        from public_bot import create_public_bot
+        from maxhr import Catalog
+        import threading
+        catalog_path=os.environ.get('MAXHR_DB_PATH','/data/ewu/maxhr.sqlite3')
+        catalog=Catalog(catalog_path)
+        print('maxhr_persisted_before_sync vacancies='+str(len(catalog.read()['vacancies']))+' integrity='+str(catalog.db.execute('PRAGMA integrity_check').fetchone()[0]),flush=True)
+        synced=catalog.sync()
+        print('maxhr_sync ok='+str(synced)+' vacancies='+str(len(catalog.read()['vacancies']))+' synced_at='+str(catalog.read()['synced_at']),flush=True)
+        catalog.close()
+        from public_bot import runtime_smoke
+        print('runtime_smoke '+json.dumps(runtime_smoke(catalog_path)),flush=True)
+        def synchronize():
+            next_sync=time.monotonic()+900
+            while True:
+                time.sleep(max(0,next_sync-time.monotonic()))
+                next_sync+=900
+                try:
+                    catalog=Catalog(catalog_path)
+                    try:
+                        ok=catalog.sync()
+                        print('maxhr_sync ok='+str(ok)+' vacancies='+str(len(catalog.read()['vacancies']))+' synced_at='+str(catalog.read()['synced_at']),flush=True)
+                    finally:catalog.close()
+                except Exception:print('maxhr_sync storage_temporarily_unavailable',flush=True)
+        threading.Thread(target=synchronize,daemon=True).start()
+        bot=create_public_bot(os.environ['TELEGRAM_TOKEN'],catalog_path,os.environ.get('PRIVACY_DB_PATH','/data/ewu/privacy.sqlite3'),admins=admins)
+    else:
+        bot = create_bot(os.environ['TELEGRAM_TOKEN'], os.environ.get('PRIVACY_CONFIG_FILE', ''),
+                         os.environ.get('PRIVACY_DB_PATH', '/data/ewu/privacy.sqlite3'),admin_ids=admins)
+    # Verify credentials and polling compatibility without changing webhook configuration.
+    identity=bot.get_me()
+    hook=bot.get_webhook_info()
+    if identity.username != 'EWU_Jobs_Bot':raise RuntimeError('Unexpected Telegram bot identity')
+    if hook.url:raise RuntimeError('Existing webhook prevents polling; cutover required')
+    print('telegram_verified username='+identity.username+' webhook_empty=True admin_configured='+str(bool(admins)),flush=True)
+    bot.set_my_commands([telebot.types.BotCommand('start','EWU menu'),telebot.types.BotCommand('jobs','Current MaxHR vacancies'),telebot.types.BotCommand('language','Choose language'),telebot.types.BotCommand('privacy','Privacy information'),telebot.types.BotCommand('my_data','Existing data'),telebot.types.BotCommand('delete_data','Request deletion'),telebot.types.BotCommand('admin','Administrator tools')])
+    print('ewu_polling_starting single_process=True intake_enabled='+os.environ.get('MAXHR_INTAKE_ENABLED','0'),flush=True)
     logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s')
+    original_get_updates=bot.get_updates
+    heartbeat=[0.0]
+    def monitored_updates(*args,**kwargs):
+        updates=original_get_updates(*args,**kwargs)
+        if time.monotonic()-heartbeat[0]>900:
+            print('telegram_poll_ok',flush=True);heartbeat[0]=time.monotonic()
+        return updates
+    bot.get_updates=monitored_updates
     while True:
         try:
-            bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=False)
+            bot.polling(non_stop=False,timeout=35,long_polling_timeout=30,allowed_updates=['message','callback_query'])
+        except telebot.apihelper.ApiTelegramException as error:
+            print('telegram_api_error code='+str(error.error_code),flush=True)
+            if error.error_code in (401,409):raise SystemExit(3)
+            time.sleep(10)
         except Exception:
             logging.error('polling_failed')
             time.sleep(10)
