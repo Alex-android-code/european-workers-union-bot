@@ -22,7 +22,7 @@ function doPost(e) {
   if(!ewuEqual_(ewuMac_(envelope.timestamp+'.'+envelope.payload,secret),envelope.signature))throw Error('authentication_failed');
   const p=JSON.parse(envelope.payload);const keys=['event_id','application_id','revision','kind','status','name','phone','city','profession','created_at','policy_revision','future_recruitment_consent'];
   if(JSON.stringify(Object.keys(p).sort())!==JSON.stringify(keys.sort())||!Number.isSafeInteger(p.revision)||p.revision<1||p.future_recruitment_consent!==false)throw Error('invalid_schema');
-  if(!/^[0-9a-f-]{36}$/.test(p.event_id)||!/^[0-9a-f-]{36}$/.test(p.application_id)||!['candidate','employer','legal'].includes(p.kind)||!['NEW','CONTACTED','OFFERED','CONFIRMED','TRAVEL_PLANNED','ARRIVED','STARTED','CLOSED','WITHDRAWN'].includes(p.status))throw Error('invalid_identity');
+  if(!/^[0-9a-f-]{36}$/.test(p.event_id)||!/^[0-9a-f-]{36}$/.test(p.application_id)||!['candidate','employer','legal','maxhr'].includes(p.kind)||!['NEW','CONTACTED','OFFERED','CONFIRMED','TRAVEL_PLANNED','ARRIVED','STARTED','CLOSED','WITHDRAWN','SCREENING','SENT_MAXHR','AWAITING_EMPLOYMENT','EMPLOYED','HOURS_24','HOURS_100','COMMISSION_CONFIRMED','COMMISSION_PAID','REJECTED'].includes(p.status))throw Error('invalid_identity');
   for(const k of keys.filter(k=>!['revision','future_recruitment_consent'].includes(k)))if(typeof p[k]!=='string'||p[k].length>1000)throw Error('invalid_value');
   lock=LockService.getScriptLock();lock.waitLock(10000);
   const book=SpreadsheetApp.openById(sheetId);

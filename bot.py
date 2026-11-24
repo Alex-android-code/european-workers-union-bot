@@ -232,8 +232,11 @@ def run():
     # Verify credentials and polling compatibility without changing webhook configuration.
     identity=bot.get_me()
     hook=bot.get_webhook_info()
-    if identity.username != 'EWU_Jobs_Bot':raise RuntimeError('Unexpected Telegram bot identity')
-    if hook.url:raise RuntimeError('Existing webhook prevents polling; cutover required')
+    print('telegram_identity username='+str(identity.username),flush=True)
+    if (identity.username or '').casefold() != 'ewu_jobs_bot':raise RuntimeError('Unexpected Telegram bot identity')
+    if hook.url:
+        print('telegram_polling_blocked webhook_present=True',flush=True)
+        raise RuntimeError('Existing webhook prevents polling; cutover required')
     print('telegram_verified username='+identity.username+' webhook_empty=True admin_configured='+str(bool(admins)),flush=True)
     bot.set_my_commands([telebot.types.BotCommand('start','EWU menu'),telebot.types.BotCommand('jobs','Current MaxHR vacancies'),telebot.types.BotCommand('language','Choose language'),telebot.types.BotCommand('privacy','Privacy information'),telebot.types.BotCommand('my_data','Existing data'),telebot.types.BotCommand('delete_data','Request deletion'),telebot.types.BotCommand('admin','Administrator tools')])
     print('ewu_polling_starting single_process=True intake_enabled='+os.environ.get('MAXHR_INTAKE_ENABLED','0'),flush=True)

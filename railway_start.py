@@ -63,8 +63,8 @@ def main():
    worker=threading.Thread(target=maintenance,args=(stop,dict(os.environ)),daemon=True);worker.start()
    from bot import run
    try:run()
-   except Exception:
-    print('EWU runtime unavailable; exception details suppressed to protect credentials',flush=True)
+   except Exception as error:
+    print('EWU runtime unavailable type='+type(error).__name__+' api_code='+str(getattr(error,'error_code','not_applicable')),flush=True)
     return 2
   finally:
    stop.set()
