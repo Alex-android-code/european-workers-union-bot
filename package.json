@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node bot.js",
-    "test": "node tests/privacy.test.js && node tests/privacy-pg.test.js"
+    "test": "node tests/privacy.test.js && node tests/privacy-pg.test.js",
+    "dev": "python -m radar.preview"
   },
   "dependencies": {
     "ai": "^6.0.0",
@@ -18,4 +19,3 @@
     "@electric-sql/pglite": "0.3.14"
   }
 }
-

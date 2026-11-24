@@ -1,0 +1,10 @@
+FROM python:3.12-slim
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+COPY requirements.txt ./requirements.txt
+COPY radar/requirements.txt ./radar/requirements.txt
+RUN pip install --no-cache-dir -r radar/requirements.txt
+COPY *.py ./
+COPY privacy/ ./privacy/
+COPY radar/ ./radar/
+CMD ["python", "-m", "radar", "serve"]
